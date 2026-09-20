@@ -6,14 +6,24 @@ import { downloadCSV } from '../lib/csv'
 import { Button, Card, Modal, Badge, Select, Input, EmptyState } from '../components/ui'
 import TxForm from '../components/TxForm'
 
-export default function Transactions() {
+export default function Transactions({
+  title = 'Ingresos y gastos',
+  lockKind,
+  pendingOnly = false,
+  emptyHint = 'Pulsa «Nuevo» para registrar tu primera venta o gasto.',
+}: {
+  title?: string
+  lockKind?: Kind
+  pendingOnly?: boolean
+  emptyHint?: string
+} = {}) {
   const txs = useLiveQuery(() => db.transactions.orderBy('date').reverse().toArray(), [])
   const categories = useLiveQuery(() => db.categories.toArray(), [])
   const contacts = useLiveQuery(() => db.contacts.toArray(), [])
 
   const [modal, setModal] = useState<null | { kind: Kind; tx?: Transaction }>(null)
-  const [filterKind, setFilterKind] = useState<'all' | Kind>('all')
-  const [filterStatus, setFilterStatus] = useState<'all' | 'paid' | 'pending'>('all')
+  const [filterKind, setFilterKind] = useState<'all' | Kind>(lockKind ?? 'all')
+  const [filterStatus, setFilterStatus] = useState<'all' | 'paid' | 'pending'>(pendingOnly ? 'pending' : 'all')
   const [query, setQuery] = useState('')
 
   const catName = (id?: number) => categories?.find((c) => c.id === id)?.name ?? '—'
@@ -68,12 +78,12 @@ export default function Transactions() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-slate-800">Ingresos y gastos</h1>
+        <h1 className="text-2xl font-bold text-slate-800">{title}</h1>
         <div className="flex gap-2">
           <Button variant="outline" onClick={exportCSV}>
             ⬇ Exportar CSV
           </Button>
-          <Button onClick={() => setModal({ kind: 'income' })}>+ Nuevo</Button>
+          <Button onClick={() => setModal({ kind: lockKind ?? 'income' })}>+ Nuevo</Button>
         </div>
       </div>
 
@@ -82,37 +92,35 @@ export default function Transactions() {
         <div className="min-w-[140px] flex-1">
           <Input placeholder="Buscar…" value={query} onChange={(e) => setQuery(e.target.value)} />
         </div>
-        <div className="w-40">
-          <Select
-            value={filterKind}
-            onChange={(e) => setFilterKind(e.target.value as 'all' | Kind)}
-          >
-            <option value="all">Todos</option>
-            <option value="income">Solo ingresos</option>
-            <option value="expense">Solo gastos</option>
-          </Select>
-        </div>
-        <div className="w-44">
-          <Select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value as 'all' | 'paid' | 'pending')}
-          >
-            <option value="all">Cualquier estado</option>
-            <option value="paid">Pagados</option>
-            <option value="pending">Pendientes</option>
-          </Select>
-        </div>
+        {!lockKind && (
+          <div className="w-40">
+            <Select value={filterKind} onChange={(e) => setFilterKind(e.target.value as 'all' | Kind)}>
+              <option value="all">Todos</option>
+              <option value="income">Solo ingresos</option>
+              <option value="expense">Solo gastos</option>
+            </Select>
+          </div>
+        )}
+        {!pendingOnly && (
+          <div className="w-44">
+            <Select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as 'all' | 'paid' | 'pending')}>
+              <option value="all">Cualquier estado</option>
+              <option value="paid">Pagados</option>
+              <option value="pending">Pendientes</option>
+            </Select>
+          </div>
+        )}
       </Card>
 
       {/* Resumen filtro */}
       <div className="flex gap-4 text-sm">
-        <span className="text-teal-600">Ingresos: <b>{money(totalIn)}</b></span>
-        <span className="text-red-600">Gastos: <b>{money(totalOut)}</b></span>
-        <span className="text-slate-600">Neto: <b>{money(totalIn - totalOut)}</b></span>
+        {lockKind !== 'expense' && <span className="text-teal-600">Ingresos: <b>{money(totalIn)}</b></span>}
+        {lockKind !== 'income' && <span className="text-red-600">Gastos: <b>{money(totalOut)}</b></span>}
+        {!lockKind && <span className="text-slate-600">Neto: <b>{money(totalIn - totalOut)}</b></span>}
       </div>
 
       {filtered.length === 0 ? (
-        <EmptyState title="Sin movimientos" hint="Pulsa «Nuevo» para registrar tu primera venta o gasto." />
+        <EmptyState title="Sin movimientos" hint={emptyHint} />
       ) : (
         <Card className="overflow-x-auto p-0">
           <table className="w-full text-sm">

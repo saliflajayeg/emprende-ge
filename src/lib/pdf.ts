@@ -33,8 +33,8 @@ function header(doc: jsPDF, s: Settings, title: string) {
 
 export function invoicePDF(inv: Invoice, s: Settings) {
   const doc = new jsPDF()
-  const isReceipt = inv.docType === 'receipt'
-  const title = isReceipt ? 'RECIBO' : 'FACTURA'
+  const TITLES: Record<string, string> = { invoice: 'FACTURA', receipt: 'RECIBO', quote: 'PRESUPUESTO' }
+  const title = TITLES[inv.docType] ?? 'FACTURA'
   header(doc, s, title)
 
   doc.setFont('helvetica', 'normal')
@@ -116,7 +116,7 @@ export function invoicePDF(inv: Invoice, s: Settings) {
   doc.setFontSize(8)
   doc.setTextColor(...GRAY)
   doc.text(
-    `${isReceipt ? 'Recibo' : 'Factura'} generado con EmprendeGE`,
+    `${TITLES[inv.docType] ? TITLES[inv.docType].charAt(0) + TITLES[inv.docType].slice(1).toLowerCase() : 'Documento'} generado con EmprendeGE`,
     105,
     288,
     { align: 'center' },

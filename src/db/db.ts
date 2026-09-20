@@ -5,7 +5,10 @@ import Dexie, { type Table } from 'dexie'
 export type Kind = 'income' | 'expense'
 export type TxStatus = 'paid' | 'pending'
 export type ContactType = 'client' | 'provider'
-export type DocType = 'invoice' | 'receipt'
+export type DocType = 'invoice' | 'receipt' | 'quote'
+export type ItemKind = 'service' | 'product' | 'ingredient'
+export type ApptStatus = 'pending' | 'done' | 'cancelled'
+export type JobStatus = 'pending' | 'in_progress' | 'done'
 
 export interface Settings {
   id: string // siempre 'app'
@@ -17,6 +20,8 @@ export interface Settings {
   address: string
   taxRate: number // % IVA por defecto para facturas (Guinea Ecuatorial: IVA 15%)
   recordsLabel: string // nombre del módulo de fichas (p.ej. "Fichas", "Clientes", "Expedientes")
+  businessType?: string // tipo de negocio (salon, restaurant, shop, technician, professional, other)
+  enabledModules?: string[] // módulos activos en el menú (ids de ModuleId)
   pinHash?: string // hash SHA-256 del PIN de acceso (opcional)
   pinSalt?: string // sal aleatoria para el hash del PIN
   lastBackupAt?: string // ISO de la última copia de seguridad descargada
@@ -106,6 +111,58 @@ export interface RecordEntry {
   createdAt: string
 }
 
+// Item de catálogo: sirve para Servicios, Productos e Ingredientes.
+export interface Item {
+  id?: number
+  kind: ItemKind
+  name: string
+  price: number
+  category: string
+  unit: string // "corte", "unidad", "kg", "L"…
+  trackStock: boolean
+  stock: number
+  lowStock: number // umbral de aviso de stock bajo
+  notes: string
+  createdAt: string
+}
+
+// Cita (peluquería/belleza)
+export interface Appointment {
+  id?: number
+  date: string // YYYY-MM-DD
+  time: string // HH:MM
+  clientId?: number
+  clientName: string
+  service: string
+  price: number
+  status: ApptStatus
+  notes: string
+  createdAt: string
+}
+
+// Trabajo pendiente (técnico)
+export interface Job {
+  id?: number
+  title: string
+  clientId?: number
+  clientName: string
+  status: JobStatus
+  dueDate?: string
+  notes: string
+  createdAt: string
+}
+
+// Empleado (light: lista de personal del negocio)
+export interface Employee {
+  id?: number
+  name: string
+  role: string
+  phone: string
+  salary?: number
+  notes: string
+  createdAt: string
+}
+
 // ---- Base de datos ----
 
 export class EmprendeDB extends Dexie {
@@ -116,6 +173,10 @@ export class EmprendeDB extends Dexie {
   invoices!: Table<Invoice, number>
   records!: Table<RecordCard, number>
   recordEntries!: Table<RecordEntry, number>
+  items!: Table<Item, number>
+  appointments!: Table<Appointment, number>
+  jobs!: Table<Job, number>
+  employees!: Table<Employee, number>
 
   constructor() {
     super('emprende-ge')
@@ -134,6 +195,13 @@ export class EmprendeDB extends Dexie {
     this.version(3).stores({
       records: '++id, type, name, archived',
       recordEntries: '++id, recordId, date',
+    })
+    // v4: módulos por tipo de negocio (catálogo, citas, trabajos, empleados)
+    this.version(4).stores({
+      items: '++id, kind, name, category',
+      appointments: '++id, date, status',
+      jobs: '++id, status, dueDate',
+      employees: '++id, name',
     })
   }
 }

@@ -6,27 +6,34 @@ import { invoicePDF } from '../lib/pdf'
 import { useSettings } from '../lib/hooks'
 import { Button, Card, Modal, Field, Input, Textarea, Select, Badge, EmptyState } from '../components/ui'
 
-function nextNumber(existing: Invoice[]): string {
+const DOC_LABEL: Record<DocType, string> = { invoice: 'Factura', receipt: 'Recibo', quote: 'Presupuesto' }
+const DOC_ICON: Record<DocType, string> = { invoice: '🧾', receipt: '🧻', quote: '📄' }
+
+function nextNumber(existing: Invoice[], prefix = ''): string {
   const year = new Date().getFullYear()
-  const n = existing.filter((i) => i.number.startsWith(String(year))).length + 1
-  return `${year}-${String(n).padStart(3, '0')}`
+  const n = existing.filter((i) => i.number.includes(String(year))).length + 1
+  return `${prefix}${year}-${String(n).padStart(3, '0')}`
 }
 
 function InvoiceForm({
   all,
   existing,
+  allowedTypes,
+  defaultDocType,
   onDone,
 }: {
   all: Invoice[]
   existing?: Invoice
+  allowedTypes: DocType[]
+  defaultDocType: DocType
   onDone: () => void
 }) {
   const settings = useSettings()
   const contacts = useLiveQuery(() => db.contacts.where('type').equals('client').toArray(), [])
 
   const [form, setForm] = useState({
-    docType: (existing?.docType ?? 'invoice') as DocType,
-    number: existing?.number ?? nextNumber(all),
+    docType: (existing?.docType ?? defaultDocType) as DocType,
+    number: existing?.number ?? nextNumber(all, defaultDocType === 'quote' ? 'P-' : ''),
     date: existing?.date ?? todayISO(),
     clientName: existing?.clientName ?? '',
     clientDetails: existing?.clientDetails ?? '',
@@ -77,22 +84,23 @@ function InvoiceForm({
     onDone()
   }
 
+  const isQuote = form.docType === 'quote'
+
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1">
-        <button
-          onClick={() => set('docType', 'invoice')}
-          className={`rounded-md py-2 text-sm font-semibold ${form.docType === 'invoice' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}
-        >
-          🧾 Factura
-        </button>
-        <button
-          onClick={() => set('docType', 'receipt')}
-          className={`rounded-md py-2 text-sm font-semibold ${form.docType === 'receipt' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}
-        >
-          🧻 Recibo
-        </button>
-      </div>
+      {allowedTypes.length > 1 && (
+        <div className="grid gap-2 rounded-lg bg-slate-100 p-1" style={{ gridTemplateColumns: `repeat(${allowedTypes.length}, minmax(0, 1fr))` }}>
+          {allowedTypes.map((t) => (
+            <button
+              key={t}
+              onClick={() => set('docType', t)}
+              className={`rounded-md py-2 text-sm font-semibold ${form.docType === t ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}
+            >
+              {DOC_ICON[t]} {DOC_LABEL[t]}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         <Field label="Número">
@@ -167,8 +175,8 @@ function InvoiceForm({
         </Field>
         <Field label="Estado">
           <Select value={form.status} onChange={(e) => set('status', e.target.value)}>
-            <option value="pending">Pendiente de cobro</option>
-            <option value="paid">Cobrada</option>
+            <option value="pending">{isQuote ? 'Pendiente' : 'Pendiente de cobro'}</option>
+            <option value="paid">{isQuote ? 'Aceptado' : 'Cobrada'}</option>
           </Select>
         </Field>
       </div>
@@ -194,12 +202,22 @@ function InvoiceForm({
   )
 }
 
-export default function Invoices() {
+export default function Invoices({
+  mode = 'invoices',
+}: {
+  mode?: 'invoices' | 'quotes'
+} = {}) {
   const settings = useSettings()
-  const invoices = useLiveQuery(() => db.invoices.orderBy('date').reverse().toArray(), [])
+  const all = useLiveQuery(() => db.invoices.orderBy('date').reverse().toArray(), [])
   const [modal, setModal] = useState<null | { inv?: Invoice }>(null)
 
-  if (!invoices) return <div className="text-slate-400">Cargando…</div>
+  const isQuotes = mode === 'quotes'
+  const allowedTypes: DocType[] = isQuotes ? ['quote'] : ['invoice', 'receipt']
+  const defaultDocType: DocType = isQuotes ? 'quote' : 'invoice'
+  const title = isQuotes ? 'Presupuestos' : 'Facturas y recibos'
+
+  if (!all) return <div className="text-slate-400">Cargando…</div>
+  const invoices = all.filter((i) => allowedTypes.includes(i.docType))
 
   async function remove(id?: number) {
     if (!id) return
@@ -209,12 +227,15 @@ export default function Invoices() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-slate-800">Facturas y recibos</h1>
-        <Button onClick={() => setModal({})}>+ Nueva factura</Button>
+        <h1 className="text-2xl font-bold text-slate-800">{title}</h1>
+        <Button onClick={() => setModal({})}>+ {isQuotes ? 'Nuevo presupuesto' : 'Nueva factura'}</Button>
       </div>
 
       {invoices.length === 0 ? (
-        <EmptyState title="Sin documentos" hint="Crea una factura o recibo y descárgalo en PDF para tu cliente." />
+        <EmptyState
+          title="Sin documentos"
+          hint={isQuotes ? 'Crea un presupuesto y descárgalo en PDF para tu cliente.' : 'Crea una factura o recibo y descárgalo en PDF para tu cliente.'}
+        />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {invoices.map((inv) => {
@@ -224,7 +245,7 @@ export default function Invoices() {
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="text-xs uppercase text-slate-400">
-                      {inv.docType === 'invoice' ? 'Factura' : 'Recibo'} · {inv.number}
+                      {DOC_LABEL[inv.docType]} · {inv.number}
                     </div>
                     <div className="font-semibold text-slate-800">{inv.clientName}</div>
                     <div className="text-sm text-slate-500">{formatDate(inv.date)}</div>
@@ -252,9 +273,17 @@ export default function Invoices() {
       <Modal
         open={modal !== null}
         onClose={() => setModal(null)}
-        title={modal?.inv ? 'Editar documento' : 'Nueva factura / recibo'}
+        title={modal?.inv ? 'Editar documento' : isQuotes ? 'Nuevo presupuesto' : 'Nueva factura / recibo'}
       >
-        {modal && <InvoiceForm all={invoices} existing={modal.inv} onDone={() => setModal(null)} />}
+        {modal && (
+          <InvoiceForm
+            all={all}
+            existing={modal.inv}
+            allowedTypes={allowedTypes}
+            defaultDocType={defaultDocType}
+            onDone={() => setModal(null)}
+          />
+        )}
       </Modal>
     </div>
   )

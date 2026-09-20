@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { useState } from 'react'
 import { useSettings } from '../lib/hooks'
 import BackupReminder from './BackupReminder'
+import { navModules, modulesFor, type ModuleId } from '../modules'
 
 interface NavEntry {
   to: string
@@ -10,16 +11,6 @@ interface NavEntry {
   icon: string
   end?: boolean
 }
-
-const NAV_BASE: NavEntry[] = [
-  { to: '/', label: 'Panel', icon: '📊', end: true },
-  { to: '/transacciones', label: 'Ingresos y gastos', icon: '💵' },
-  { to: '/facturas', label: 'Facturas y recibos', icon: '🧾' },
-  { to: '/fichas', label: 'Fichas', icon: '🗂️' },
-  { to: '/contactos', label: 'Contactos', icon: '👥' },
-  { to: '/informes', label: 'Informes', icon: '📈' },
-  { to: '/ajustes', label: 'Ajustes', icon: '⚙️' },
-]
 
 function NavItems({ items, onClick }: { items: NavEntry[]; onClick?: () => void }) {
   return (
@@ -49,9 +40,13 @@ export default function Layout({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
 
-  const NAV = NAV_BASE.map((n) =>
-    n.to === '/fichas' ? { ...n, label: settings?.recordsLabel || 'Fichas' } : n,
-  )
+  const enabled = (settings?.enabledModules as ModuleId[] | undefined) ?? modulesFor(settings?.businessType)
+  const NAV: NavEntry[] = navModules(enabled).map((m) => ({
+    to: m.path,
+    label: m.id === 'records' ? settings?.recordsLabel || m.label : m.label,
+    icon: m.icon,
+    end: m.path === '/',
+  }))
 
   return (
     <div className="flex min-h-screen">

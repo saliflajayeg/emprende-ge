@@ -1,11 +1,11 @@
 import { useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, type Kind } from '../db/db'
-import { SECTORS } from '../db/seed'
 import { saveSettings, useSettings } from '../lib/hooks'
 import { exportBackup, restoreBackup } from '../lib/backup'
 import { hashPin, randomSalt, setUnlocked } from '../lib/lock'
 import { formatDate } from '../lib/format'
+import { BUSINESS_TYPES, MODULES, TOGGLEABLE, modulesFor, type ModuleId } from '../modules'
 import { Card, Button, Field, Input, Select } from '../components/ui'
 
 const PALETTE = ['#0d9488', '#0ea5e9', '#8b5cf6', '#ef4444', '#f97316', '#eab308', '#84cc16', '#ec4899', '#6366f1']
@@ -27,6 +27,25 @@ export default function Settings() {
   async function saveBiz(patch: Record<string, string | number>) {
     await saveSettings(patch)
     flash('Guardado ✓')
+  }
+
+  const enabled = (settings.enabledModules as ModuleId[] | undefined) ?? modulesFor(settings.businessType)
+
+  async function changeType(type: string) {
+    if (!confirm('Esto ajustará los módulos visibles del menú a los de ese tipo de negocio. ¿Continuar?')) return
+    await saveSettings({
+      businessType: type,
+      enabledModules: modulesFor(type),
+      sector: BUSINESS_TYPES.find((b) => b.id === type)?.label ?? '',
+    })
+    flash('Módulos actualizados ✓')
+  }
+
+  async function toggleModule(id: ModuleId) {
+    const s = new Set(enabled)
+    if (s.has(id)) s.delete(id)
+    else s.add(id)
+    await saveSettings({ enabledModules: [...s] })
   }
 
   async function addCategory(kind: Kind) {
@@ -94,6 +113,7 @@ export default function Settings() {
     await Promise.all([
       db.settings.clear(), db.categories.clear(), db.contacts.clear(),
       db.transactions.clear(), db.invoices.clear(), db.records.clear(), db.recordEntries.clear(),
+      db.items.clear(), db.appointments.clear(), db.jobs.clear(), db.employees.clear(),
     ])
     location.reload()
   }
@@ -141,9 +161,9 @@ export default function Settings() {
           <Field label="Propietario/a">
             <Input defaultValue={settings.ownerName} onBlur={(e) => saveBiz({ ownerName: e.target.value })} />
           </Field>
-          <Field label="Sector">
-            <Select defaultValue={settings.sector} onChange={(e) => saveBiz({ sector: e.target.value })}>
-              {SECTORS.map((s) => <option key={s}>{s}</option>)}
+          <Field label="Tipo de negocio">
+            <Select value={settings.businessType ?? 'other'} onChange={(e) => changeType(e.target.value)}>
+              {BUSINESS_TYPES.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
             </Select>
           </Field>
           <Field label="Moneda">
@@ -174,6 +194,34 @@ export default function Settings() {
           Los cambios se guardan al salir de cada campo. «Nombre del módulo de fichas» cambia cómo se
           llama la sección de expedientes en el menú (p. ej. «Clientes» para una peluquería, «Niños» para una acogida).
         </p>
+      </Card>
+
+      <Card>
+        <h2 className="mb-1 font-semibold text-slate-800">Módulos visibles en el menú</h2>
+        <p className="mb-4 text-sm text-slate-500">
+          Activa o desactiva los módulos que quieres ver. El tipo de negocio elige unos por defecto,
+          pero puedes personalizarlo.
+        </p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {TOGGLEABLE.map((id) => {
+            const on = enabled.includes(id)
+            const m = MODULES[id]
+            return (
+              <button
+                key={id}
+                onClick={() => toggleModule(id)}
+                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition ${
+                  on ? 'border-teal-400 bg-teal-50 text-teal-800' : 'border-slate-200 text-slate-400 hover:border-slate-300'
+                }`}
+              >
+                <span>{m.icon}</span>
+                <span className="flex-1 truncate">{id === 'records' ? settings.recordsLabel || m.label : m.label}</span>
+                <span className={`text-xs ${on ? 'text-teal-600' : 'text-slate-300'}`}>{on ? '●' : '○'}</span>
+              </button>
+            )
+          })}
+        </div>
+        <p className="mt-2 text-xs text-slate-400">Panel, Informes y Ajustes siempre están visibles.</p>
       </Card>
 
       <Card>
