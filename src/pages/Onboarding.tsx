@@ -41,9 +41,9 @@ export default function Onboarding() {
     <div className="grid min-h-screen place-items-center bg-gradient-to-br from-teal-50 to-slate-100 p-4">
       <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-lg sm:p-8">
         <div className="mb-6 flex items-center gap-3">
-          <span className="grid h-11 w-11 place-items-center rounded-xl bg-teal-600 text-xl font-bold text-white">E</span>
+          <img src="/logo-mark.png" alt="GEmprende" className="h-12 w-12 rounded-xl object-cover shadow-sm" />
           <div>
-            <h1 className="text-xl font-bold text-slate-800">EmprendeGE</h1>
+            <h1 className="text-xl font-bold text-slate-800">GEmprende</h1>
             <p className="text-sm text-slate-500">Controla tu negocio en minutos</p>
           </div>
         </div>
@@ -146,7 +146,7 @@ export default function Onboarding() {
             <div className="flex gap-2">
               <Button variant="outline" onClick={() => setStep(2)}>← Atrás</Button>
               <Button className="flex-1" onClick={finish} disabled={saving}>
-                {saving ? 'Creando…' : 'Empezar a usar EmprendeGE'}
+                {saving ? 'Creando…' : 'Empezar a usar GEmprende'}
               </Button>
             </div>
           </div>

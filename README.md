@@ -1,4 +1,4 @@
-# EmprendeGE
+# GEmprende
 
 Plataforma sencilla de **contabilidad y control de caja para emprendedores de Guinea Ecuatorial**.
 Español · moneda XAF por defecto · **funciona sin internet**.

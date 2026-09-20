@@ -13,8 +13,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['apple-touch-icon.png'],
       manifest: {
-        name: 'EmprendeGE — Gestiona tu negocio',
-        short_name: 'EmprendeGE',
+        name: 'GEmprende — Gestiona tu negocio',
+        short_name: 'GEmprende',
         description:
           'Contabilidad, caja y fichas para tu negocio. Funciona sin conexión: los datos se guardan en tu dispositivo.',
         lang: 'es',

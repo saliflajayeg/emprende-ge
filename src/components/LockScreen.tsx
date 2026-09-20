@@ -25,8 +25,8 @@ export default function LockScreen({ settings, onUnlock }: { settings: Settings;
   return (
     <div className="grid min-h-screen place-items-center bg-gradient-to-br from-teal-50 to-slate-100 p-4">
       <div className="w-full max-w-xs rounded-2xl bg-white p-6 text-center shadow-lg">
-        <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-teal-600 text-2xl">🔒</div>
-        <h1 className="text-lg font-bold text-slate-800">{settings.businessName || 'EmprendeGE'}</h1>
+        <img src="/logo-mark.png" alt="GEmprende" className="mx-auto mb-4 h-16 w-16 rounded-2xl object-cover shadow-sm" />
+        <h1 className="text-lg font-bold text-slate-800">{settings.businessName || 'GEmprende'}</h1>
         <p className="mb-4 text-sm text-slate-500">Introduce tu PIN para acceder</p>
         <input
           type="password"

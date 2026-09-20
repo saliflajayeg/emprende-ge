@@ -53,11 +53,9 @@ export default function Layout({ children }: { children: ReactNode }) {
       {/* Sidebar escritorio */}
       <aside className="no-print hidden w-64 shrink-0 flex-col border-r border-slate-200 bg-white p-4 md:flex">
         <button onClick={() => navigate('/')} className="mb-6 flex items-center gap-2 text-left">
-          <span className="grid h-9 w-9 place-items-center rounded-lg bg-teal-600 text-lg font-bold text-white">
-            E
-          </span>
+          <img src="/logo-mark.png" alt="GEmprende" className="h-9 w-9 rounded-lg object-cover" />
           <div>
-            <div className="font-bold leading-tight text-slate-800">EmprendeGE</div>
+            <div className="font-bold leading-tight text-slate-800">GEmprende</div>
             <div className="text-xs text-slate-400">
               {settings?.businessName || 'Tu negocio'}
             </div>
@@ -74,10 +72,8 @@ export default function Layout({ children }: { children: ReactNode }) {
         {/* Barra superior móvil */}
         <header className="no-print flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 md:hidden">
           <div className="flex items-center gap-2">
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-teal-600 font-bold text-white">
-              E
-            </span>
-            <span className="font-bold text-slate-800">EmprendeGE</span>
+            <img src="/logo-mark.png" alt="GEmprende" className="h-8 w-8 rounded-lg object-cover" />
+            <span className="font-bold text-slate-800">GEmprende</span>
           </div>
           <button onClick={() => setOpen(true)} className="rounded-lg p-2 hover:bg-slate-100" aria-label="Menú">
             ☰

@@ -116,7 +116,7 @@ export function invoicePDF(inv: Invoice, s: Settings) {
   doc.setFontSize(8)
   doc.setTextColor(...GRAY)
   doc.text(
-    `${TITLES[inv.docType] ? TITLES[inv.docType].charAt(0) + TITLES[inv.docType].slice(1).toLowerCase() : 'Documento'} generado con EmprendeGE`,
+    `${TITLES[inv.docType] ? TITLES[inv.docType].charAt(0) + TITLES[inv.docType].slice(1).toLowerCase() : 'Documento'} generado con GEmprende`,
     105,
     288,
     { align: 'center' },
@@ -208,7 +208,7 @@ export function reportPDF(r: ReportData, s: Settings) {
 
   doc.setFontSize(8)
   doc.setTextColor(...GRAY)
-  doc.text('Informe generado con EmprendeGE', 105, 288, { align: 'center' })
+  doc.text('Informe generado con GEmprende', 105, 288, { align: 'center' })
 
   doc.save(`Informe-${r.periodLabel.replace(/\s+/g, '-')}.pdf`)
 }
@@ -319,7 +319,7 @@ export function recordPDF(rec: RecordCard, entries: RecordEntry[], s: Settings) 
     doc.setPage(p)
     doc.setFontSize(8)
     doc.setTextColor(...GRAY)
-    doc.text(`Expediente confidencial · ${s.businessName} · EmprendeGE`, 105, 291, { align: 'center' })
+    doc.text(`Expediente confidencial · ${s.businessName} · GEmprende`, 105, 291, { align: 'center' })
   }
 
   doc.save(`Expediente-${(rec.name || 'ficha').replace(/\s+/g, '-')}.pdf`)

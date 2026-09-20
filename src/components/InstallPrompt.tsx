@@ -58,9 +58,9 @@ export default function InstallPrompt() {
   return (
     <div className="no-print fixed inset-x-3 bottom-3 z-50 mx-auto max-w-md rounded-xl border border-teal-200 bg-white p-3 shadow-lg sm:left-auto sm:right-4">
       <div className="flex items-center gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-teal-600 font-bold text-white">E</span>
+        <img src="/logo-mark.png" alt="GEmprende" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
         <div className="min-w-0 flex-1">
-          <div className="text-sm font-semibold text-slate-800">Instala EmprendeGE</div>
+          <div className="text-sm font-semibold text-slate-800">Instala GEmprende</div>
           <div className="text-xs text-slate-500">Ábrela como app desde tu pantalla de inicio, funciona sin conexión.</div>
         </div>
       </div>
