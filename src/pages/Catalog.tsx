@@ -11,6 +11,17 @@ interface CatalogConfig {
   stockByDefault: boolean
 }
 
+const MERCADO_SEMU_URL = 'https://mercadosemu.com'
+
+// Abre el formulario de "vender" de Mercado Semu precargado con este artículo.
+function publishToSemu(it: Item) {
+  const params = new URLSearchParams({ from: 'gemprende', title: it.name })
+  if (it.price) params.set('price', String(it.price))
+  const desc = it.notes || it.category || ''
+  if (desc) params.set('desc', desc)
+  window.open(`${MERCADO_SEMU_URL}/vender?${params.toString()}`, '_blank', 'noopener')
+}
+
 function ItemForm({ cfg, existing, onDone }: { cfg: CatalogConfig; existing?: Item; onDone: () => void }) {
   const [form, setForm] = useState({
     name: existing?.name ?? '',
@@ -122,6 +133,12 @@ export default function Catalog({ cfg }: { cfg: CatalogConfig }) {
         <Input placeholder="Buscar…" value={query} onChange={(e) => setQuery(e.target.value)} />
       </Card>
 
+      {cfg.kind !== 'ingredient' && list.length > 0 && (
+        <p className="text-xs text-slate-400">
+          🏪 Pulsa el icono de tienda en un artículo para publicarlo en <b>Mercado Semu</b>.
+        </p>
+      )}
+
       {list.length === 0 ? (
         <EmptyState title={`Sin ${cfg.title.toLowerCase()}`} hint={`Añade tu primer ${cfg.singular.toLowerCase()}.`} />
       ) : (
@@ -164,6 +181,15 @@ export default function Catalog({ cfg }: { cfg: CatalogConfig }) {
                       )}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-right">
+                      {cfg.kind !== 'ingredient' && (
+                        <button
+                          onClick={() => publishToSemu(it)}
+                          className="mr-2 text-slate-400 hover:text-teal-600"
+                          title="Publicar en Mercado Semu"
+                        >
+                          🏪
+                        </button>
+                      )}
                       <button onClick={() => setModal({ item: it })} className="mr-2 text-slate-400 hover:text-teal-600" title="Editar">✎</button>
                       <button onClick={() => remove(it.id)} className="text-slate-400 hover:text-red-600" title="Eliminar">🗑</button>
                     </td>
