@@ -1,15 +1,21 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { HashRouter } from 'react-router-dom'
-import App from './App'
+import { AuthProvider } from './cloud/auth'
+import { BusinessProvider } from './cloud/business'
+import Root from './cloud/Root'
 import InstallPrompt from './components/InstallPrompt'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <HashRouter>
-      <App />
-      <InstallPrompt />
+      <AuthProvider>
+        <BusinessProvider>
+          <Root />
+          <InstallPrompt />
+        </BusinessProvider>
+      </AuthProvider>
     </HashRouter>
   </React.StrictMode>,
 )
