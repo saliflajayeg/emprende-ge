@@ -4,19 +4,14 @@ import Dashboard from '../pages/Dashboard'
 import Transactions from '../pages/Transactions'
 import Contacts from '../pages/Contacts'
 import Catalog, { CATALOG_SERVICES, CATALOG_PRODUCTS, CATALOG_INGREDIENTS } from '../pages/Catalog'
-import { Card } from '../components/ui'
-
-function Soon({ name }: { name: string }) {
-  return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold text-slate-800">{name}</h1>
-      <Card>
-        <p className="text-slate-600">🔌 Este módulo se está conectando a la nube con sincronización offline.</p>
-        <p className="mt-1 text-sm text-slate-400">Muy pronto disponible. El panel, ventas, gastos, catálogo y contactos ya funcionan.</p>
-      </Card>
-    </div>
-  )
-}
+import Stock from '../pages/Stock'
+import Appointments from '../pages/Appointments'
+import Jobs from '../pages/Jobs'
+import Employees from '../pages/Employees'
+import Settings from '../pages/Settings'
+import Invoices from '../pages/Invoices'
+import Records from '../pages/Records'
+import Reports from '../pages/Reports'
 
 export default function CloudApp() {
   return (
@@ -34,16 +29,17 @@ export default function CloudApp() {
         <Route path="/clientes" element={<Contacts />} />
         <Route path="/contactos" element={<Contacts />} />
 
-        {/* Pendientes de migrar a la nube */}
-        <Route path="/stock" element={<Soon name="Stock" />} />
-        <Route path="/citas" element={<Soon name="Citas" />} />
-        <Route path="/trabajos" element={<Soon name="Trabajos pendientes" />} />
-        <Route path="/empleados" element={<Soon name="Empleados" />} />
-        <Route path="/facturas" element={<Soon name="Facturas" />} />
-        <Route path="/presupuestos" element={<Soon name="Presupuestos" />} />
-        <Route path="/fichas" element={<Soon name="Fichas" />} />
-        <Route path="/informes" element={<Soon name="Informes" />} />
-        <Route path="/ajustes" element={<Soon name="Ajustes" />} />
+        <Route path="/stock" element={<Stock />} />
+        <Route path="/citas" element={<Appointments />} />
+        <Route path="/trabajos" element={<Jobs />} />
+        <Route path="/empleados" element={<Employees />} />
+
+        <Route path="/facturas" element={<Invoices mode="invoices" />} />
+        <Route path="/presupuestos" element={<Invoices mode="quotes" />} />
+
+        <Route path="/fichas" element={<Records />} />
+        <Route path="/informes" element={<Reports />} />
+        <Route path="/ajustes" element={<Settings />} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

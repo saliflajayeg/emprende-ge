@@ -1,23 +1,25 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, type RecordCard } from '../db/db'
+import { ldb, type RecordCard } from '../cloud/localdb'
+import { useBusiness } from '../cloud/business'
 import { formatDate } from '../lib/format'
-import { useSettings } from '../lib/hooks'
 import { Button, Card, Modal, Input, Select, EmptyState } from '../components/ui'
 import RecordForm from '../components/RecordForm'
 import RecordDetail from '../components/RecordDetail'
 
 export default function Records() {
-  const settings = useSettings()
-  const records = useLiveQuery(() => db.records.toArray(), [])
+  const { current } = useBusiness()
+  const bid = current?.id ?? ''
+  const records = useLiveQuery(() => (bid ? ldb.records.where('businessId').equals(bid).toArray() : []), [bid])
   const entryCounts = useLiveQuery(async () => {
-    const all = await db.recordEntries.toArray()
-    const map: Record<number, number> = {}
+    if (!bid) return {}
+    const all = await ldb.recordEntries.where('businessId').equals(bid).toArray()
+    const map: Record<string, number> = {}
     for (const e of all) map[e.recordId] = (map[e.recordId] ?? 0) + 1
     return map
-  }, [])
+  }, [bid])
 
-  const label = settings?.recordsLabel || 'Fichas'
+  const label = current?.recordsLabel || 'Fichas'
 
   const [query, setQuery] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
@@ -97,7 +99,7 @@ export default function Records() {
                   {r.type} · {formatDate(r.registeredAt)}
                 </div>
                 <div className="text-xs text-teal-600">
-                  {(entryCounts?.[r.id!] ?? 0)} entrada(s) de seguimiento
+                  {(entryCounts?.[r.id] ?? 0)} entrada(s) de seguimiento
                 </div>
               </div>
             </button>

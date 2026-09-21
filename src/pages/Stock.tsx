@@ -1,13 +1,18 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, type Item } from '../db/db'
+import { ldb, type Item } from '../cloud/localdb'
+import { useBusiness } from '../cloud/business'
 import { money, moneyPlain } from '../lib/format'
 import { Card, Input, StatCard, EmptyState } from '../components/ui'
 
 const KIND_LABEL: Record<string, string> = { product: 'Producto', ingredient: 'Ingrediente', service: 'Servicio' }
 
 export default function Stock() {
-  const items = useLiveQuery(() => db.items.filter((i) => i.trackStock).toArray(), [])
+  const bid = useBusiness().current?.id ?? ''
+  const items = useLiveQuery(
+    () => (bid ? ldb.items.where('businessId').equals(bid).filter((i) => i.trackStock).toArray() : []),
+    [bid],
+  )
   const [query, setQuery] = useState('')
 
   const list = useMemo(() => {
@@ -27,7 +32,7 @@ export default function Stock() {
 
   async function adjust(it: Item, delta: number) {
     if (!it.id) return
-    await db.items.update(it.id, { stock: Math.max(0, (it.stock || 0) + delta) })
+    await ldb.items.update(it.id, { stock: Math.max(0, (it.stock || 0) + delta) })
   }
 
   return (

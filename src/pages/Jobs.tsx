@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, type Job, type JobStatus } from '../db/db'
+import { ldb, removeRow, type Job, type JobStatus } from '../cloud/localdb'
+import { useBusiness } from '../cloud/business'
 import { formatDate } from '../lib/format'
 import { Button, Card, Modal, Field, Input, Select, Textarea, EmptyState } from '../components/ui'
 
@@ -11,10 +12,11 @@ const STATUS: Record<JobStatus, { label: string; cls: string }> = {
 }
 
 function JobForm({ existing, onDone }: { existing?: Job; onDone: () => void }) {
-  const clients = useLiveQuery(() => db.contacts.where('type').equals('client').toArray(), [])
+  const bid = useBusiness().current?.id ?? ''
+  const clients = useLiveQuery(() => (bid ? ldb.contacts.where('businessId').equals(bid).filter((c) => c.type === 'client').toArray() : []), [bid])
   const [form, setForm] = useState({
     title: existing?.title ?? '',
-    clientId: existing?.clientId ? String(existing.clientId) : '',
+    clientId: existing?.clientId ?? '',
     clientName: existing?.clientName ?? '',
     status: existing?.status ?? 'pending',
     dueDate: existing?.dueDate ?? '',
@@ -24,23 +26,23 @@ function JobForm({ existing, onDone }: { existing?: Job; onDone: () => void }) {
 
   function pickClient(id: string) {
     set('clientId', id)
-    const c = clients?.find((x) => String(x.id) === id)
+    const c = clients?.find((x) => x.id === id)
     if (c) set('clientName', c.name)
   }
 
   async function save() {
     if (!form.title.trim()) return
-    const rec: Job = {
+    const rec = {
       title: form.title.trim(),
-      clientId: form.clientId ? Number(form.clientId) : undefined,
+      clientId: form.clientId || undefined,
       clientName: form.clientName.trim(),
       status: form.status as JobStatus,
       dueDate: form.dueDate || undefined,
       notes: form.notes.trim(),
       createdAt: existing?.createdAt ?? new Date().toISOString(),
     }
-    if (existing?.id) await db.jobs.put({ ...rec, id: existing.id })
-    else await db.jobs.add(rec)
+    if (existing?.id) await ldb.jobs.update(existing.id, rec)
+    else await ldb.jobs.add(rec as Job)
     onDone()
   }
 
@@ -76,7 +78,8 @@ function JobForm({ existing, onDone }: { existing?: Job; onDone: () => void }) {
 }
 
 export default function Jobs() {
-  const jobs = useLiveQuery(() => db.jobs.toArray(), [])
+  const bid = useBusiness().current?.id ?? ''
+  const jobs = useLiveQuery(() => (bid ? ldb.jobs.where('businessId').equals(bid).toArray() : []), [bid])
   const [modal, setModal] = useState<null | { job?: Job }>(null)
   const [showDone, setShowDone] = useState(false)
 
@@ -93,11 +96,11 @@ export default function Jobs() {
   async function cycle(j: Job) {
     if (!j.id) return
     const next: JobStatus = j.status === 'pending' ? 'in_progress' : j.status === 'in_progress' ? 'done' : 'pending'
-    await db.jobs.update(j.id, { status: next })
+    await ldb.jobs.update(j.id, { status: next })
   }
-  async function remove(id?: number) {
+  async function remove(id?: string) {
     if (!id) return
-    if (confirm('¿Eliminar este trabajo?')) await db.jobs.delete(id)
+    if (confirm('¿Eliminar este trabajo?')) await removeRow('jobs', id)
   }
 
   return (

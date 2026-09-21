@@ -1,14 +1,29 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import type { Invoice, RecordCard, RecordEntry, Settings } from '../db/db'
-import { invoiceTotals } from '../db/db'
+import type { Invoice, RecordCard, RecordEntry } from '../cloud/localdb'
 import { formatDate, moneyPlain } from './format'
+
+// Datos del negocio que necesitan los PDF (independiente de la BD).
+export interface PdfBusiness {
+  businessName: string
+  sector?: string
+  address?: string
+  phone?: string
+  currency: string
+}
+
+// Totales de una factura/presupuesto.
+export function invoiceTotals(inv: { items: { qty: number; price: number }[]; taxRate: number }) {
+  const subtotal = inv.items.reduce((s, it) => s + it.qty * it.price, 0)
+  const tax = subtotal * (inv.taxRate / 100)
+  return { subtotal, tax, total: subtotal + tax }
+}
 
 const TEAL: [number, number, number] = [13, 148, 136]
 const DARK: [number, number, number] = [15, 23, 42]
 const GRAY: [number, number, number] = [100, 116, 139]
 
-function header(doc: jsPDF, s: Settings, title: string) {
+function header(doc: jsPDF, s: PdfBusiness, title: string) {
   doc.setFillColor(...TEAL)
   doc.rect(0, 0, 210, 4, 'F')
 
@@ -31,7 +46,7 @@ function header(doc: jsPDF, s: Settings, title: string) {
   doc.text(title, 196, 20, { align: 'right' })
 }
 
-export function invoicePDF(inv: Invoice, s: Settings) {
+export function invoicePDF(inv: Invoice, s: PdfBusiness) {
   const doc = new jsPDF()
   const TITLES: Record<string, string> = { invoice: 'FACTURA', receipt: 'RECIBO', quote: 'PRESUPUESTO' }
   const title = TITLES[inv.docType] ?? 'FACTURA'
@@ -134,7 +149,7 @@ interface ReportData {
   monthly: { label: string; income: number; expense: number }[]
 }
 
-export function reportPDF(r: ReportData, s: Settings) {
+export function reportPDF(r: ReportData, s: PdfBusiness) {
   const doc = new jsPDF()
   header(doc, s, 'INFORME')
 
@@ -214,7 +229,7 @@ export function reportPDF(r: ReportData, s: Settings) {
 }
 
 // Expediente completo de una ficha: foto, datos y toda la bitácora de seguimiento.
-export function recordPDF(rec: RecordCard, entries: RecordEntry[], s: Settings) {
+export function recordPDF(rec: RecordCard, entries: RecordEntry[], s: PdfBusiness) {
   const doc = new jsPDF()
   header(doc, s, 'EXPEDIENTE')
 

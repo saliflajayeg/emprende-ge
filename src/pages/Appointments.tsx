@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, type Appointment, type ApptStatus } from '../db/db'
+import { ldb, removeRow, type Appointment, type ApptStatus } from '../cloud/localdb'
+import { useBusiness } from '../cloud/business'
 import { money, formatDate, todayISO } from '../lib/format'
 import { Button, Card, Modal, Field, Input, Select, Textarea, EmptyState } from '../components/ui'
 
@@ -11,12 +12,13 @@ const STATUS: Record<ApptStatus, { label: string; cls: string }> = {
 }
 
 function ApptForm({ existing, onDone }: { existing?: Appointment; onDone: () => void }) {
-  const clients = useLiveQuery(() => db.contacts.where('type').equals('client').toArray(), [])
-  const services = useLiveQuery(() => db.items.where('kind').equals('service').toArray(), [])
+  const bid = useBusiness().current?.id ?? ''
+  const clients = useLiveQuery(() => (bid ? ldb.contacts.where('businessId').equals(bid).filter((c) => c.type === 'client').toArray() : []), [bid])
+  const services = useLiveQuery(() => (bid ? ldb.items.where('businessId').equals(bid).filter((i) => i.kind === 'service').toArray() : []), [bid])
   const [form, setForm] = useState({
     date: existing?.date ?? todayISO(),
     time: existing?.time ?? '10:00',
-    clientId: existing?.clientId ? String(existing.clientId) : '',
+    clientId: existing?.clientId ?? '',
     clientName: existing?.clientName ?? '',
     service: existing?.service ?? '',
     price: existing?.price ? String(existing.price) : '',
@@ -27,7 +29,7 @@ function ApptForm({ existing, onDone }: { existing?: Appointment; onDone: () => 
 
   function pickClient(id: string) {
     set('clientId', id)
-    const c = clients?.find((x) => String(x.id) === id)
+    const c = clients?.find((x) => x.id === id)
     if (c) set('clientName', c.name)
   }
   function pickService(name: string) {
@@ -38,10 +40,10 @@ function ApptForm({ existing, onDone }: { existing?: Appointment; onDone: () => 
 
   async function save() {
     if (!form.clientName.trim() && !form.service.trim()) return
-    const rec: Appointment = {
+    const rec = {
       date: form.date,
       time: form.time,
-      clientId: form.clientId ? Number(form.clientId) : undefined,
+      clientId: form.clientId || undefined,
       clientName: form.clientName.trim(),
       service: form.service.trim(),
       price: Number(form.price) || 0,
@@ -49,8 +51,8 @@ function ApptForm({ existing, onDone }: { existing?: Appointment; onDone: () => 
       notes: form.notes.trim(),
       createdAt: existing?.createdAt ?? new Date().toISOString(),
     }
-    if (existing?.id) await db.appointments.put({ ...rec, id: existing.id })
-    else await db.appointments.add(rec)
+    if (existing?.id) await ldb.appointments.update(existing.id, rec)
+    else await ldb.appointments.add(rec as Appointment)
     onDone()
   }
 
@@ -99,7 +101,8 @@ function ApptForm({ existing, onDone }: { existing?: Appointment; onDone: () => 
 }
 
 export default function Appointments() {
-  const appts = useLiveQuery(() => db.appointments.toArray(), [])
+  const bid = useBusiness().current?.id ?? ''
+  const appts = useLiveQuery(() => (bid ? ldb.appointments.where('businessId').equals(bid).toArray() : []), [bid])
   const [modal, setModal] = useState<null | { appt?: Appointment }>(null)
   const [showPast, setShowPast] = useState(false)
 
@@ -116,11 +119,11 @@ export default function Appointments() {
 
   async function setStatus(a: Appointment, status: ApptStatus) {
     if (!a.id) return
-    await db.appointments.update(a.id, { status })
+    await ldb.appointments.update(a.id, { status })
   }
-  async function remove(id?: number) {
+  async function remove(id?: string) {
     if (!id) return
-    if (confirm('¿Eliminar esta cita?')) await db.appointments.delete(id)
+    if (confirm('¿Eliminar esta cita?')) await removeRow('appointments', id)
   }
 
   return (

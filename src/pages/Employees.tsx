@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, type Employee } from '../db/db'
+import { ldb, removeRow, type Employee } from '../cloud/localdb'
+import { useBusiness } from '../cloud/business'
 import { money } from '../lib/format'
 import { Button, Card, Modal, Field, Input, Textarea, EmptyState } from '../components/ui'
 
@@ -16,7 +17,7 @@ function EmpForm({ existing, onDone }: { existing?: Employee; onDone: () => void
 
   async function save() {
     if (!form.name.trim()) return
-    const rec: Employee = {
+    const rec = {
       name: form.name.trim(),
       role: form.role.trim(),
       phone: form.phone.trim(),
@@ -24,8 +25,8 @@ function EmpForm({ existing, onDone }: { existing?: Employee; onDone: () => void
       notes: form.notes.trim(),
       createdAt: existing?.createdAt ?? new Date().toISOString(),
     }
-    if (existing?.id) await db.employees.put({ ...rec, id: existing.id })
-    else await db.employees.add(rec)
+    if (existing?.id) await ldb.employees.update(existing.id, rec)
+    else await ldb.employees.add(rec as Employee)
     onDone()
   }
 
@@ -47,14 +48,18 @@ function EmpForm({ existing, onDone }: { existing?: Employee; onDone: () => void
 }
 
 export default function Employees() {
-  const emps = useLiveQuery(() => db.employees.orderBy('name').toArray(), [])
+  const bid = useBusiness().current?.id ?? ''
+  const emps = useLiveQuery(
+    () => (bid ? ldb.employees.where('businessId').equals(bid).toArray().then((r) => r.sort((a, b) => a.name.localeCompare(b.name))) : []),
+    [bid],
+  )
   const [modal, setModal] = useState<null | { emp?: Employee }>(null)
 
   if (!emps) return <div className="text-slate-400">Cargando…</div>
 
-  async function remove(id?: number) {
+  async function remove(id?: string) {
     if (!id) return
-    if (confirm('¿Eliminar este empleado?')) await db.employees.delete(id)
+    if (confirm('¿Eliminar este empleado?')) await removeRow('employees', id)
   }
 
   return (

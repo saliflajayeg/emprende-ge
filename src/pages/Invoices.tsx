@@ -1,10 +1,18 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, invoiceTotals, type Invoice, type InvoiceItem, type DocType } from '../db/db'
+import { ldb, removeRow, type Invoice, type InvoiceItem, type DocType } from '../cloud/localdb'
+import { useBusiness, type Business } from '../cloud/business'
 import { money, formatDate, todayISO } from '../lib/format'
-import { invoicePDF } from '../lib/pdf'
-import { useSettings } from '../lib/hooks'
+import { invoicePDF, invoiceTotals, type PdfBusiness } from '../lib/pdf'
 import { Button, Card, Modal, Field, Input, Textarea, Select, Badge, EmptyState } from '../components/ui'
+
+const pdfBiz = (b: Business): PdfBusiness => ({
+  businessName: b.name,
+  sector: b.sector,
+  address: b.address,
+  phone: b.phone,
+  currency: b.currency,
+})
 
 const DOC_LABEL: Record<DocType, string> = { invoice: 'Factura', receipt: 'Recibo', quote: 'Presupuesto' }
 const DOC_ICON: Record<DocType, string> = { invoice: '🧾', receipt: '🧻', quote: '📄' }
@@ -28,8 +36,9 @@ function InvoiceForm({
   defaultDocType: DocType
   onDone: () => void
 }) {
-  const settings = useSettings()
-  const contacts = useLiveQuery(() => db.contacts.where('type').equals('client').toArray(), [])
+  const { current } = useBusiness()
+  const bid = current?.id ?? ''
+  const contacts = useLiveQuery(() => (bid ? ldb.contacts.where('businessId').equals(bid).filter((c) => c.type === 'client').toArray() : []), [bid])
 
   const [form, setForm] = useState({
     docType: (existing?.docType ?? defaultDocType) as DocType,
@@ -37,8 +46,8 @@ function InvoiceForm({
     date: existing?.date ?? todayISO(),
     clientName: existing?.clientName ?? '',
     clientDetails: existing?.clientDetails ?? '',
-    contactId: existing?.contactId ? String(existing.contactId) : '',
-    taxRate: existing?.taxRate ?? settings?.taxRate ?? 15,
+    contactId: existing?.contactId ?? '',
+    taxRate: existing?.taxRate ?? current?.taxRate ?? 15,
     notes: existing?.notes ?? '',
     status: existing?.status ?? 'pending',
   })
@@ -56,7 +65,7 @@ function InvoiceForm({
 
   function pickContact(id: string) {
     set('contactId', id)
-    const c = contacts?.find((x) => String(x.id) === id)
+    const c = contacts?.find((x) => x.id === id)
     if (c) {
       set('clientName', c.name)
       set('clientDetails', [c.phone, c.email].filter(Boolean).join(' · '))
@@ -64,23 +73,22 @@ function InvoiceForm({
   }
 
   async function save(andPdf: boolean) {
-    const rec: Invoice = {
+    const rec = {
       docType: form.docType,
       number: form.number,
       date: form.date,
       clientName: form.clientName.trim() || 'Cliente',
       clientDetails: form.clientDetails.trim(),
-      contactId: form.contactId ? Number(form.contactId) : undefined,
+      contactId: form.contactId || undefined,
       items: items.filter((it) => it.description.trim() || it.price > 0),
       taxRate: Number(form.taxRate),
       notes: form.notes.trim(),
       status: form.status as Invoice['status'],
       createdAt: existing?.createdAt ?? new Date().toISOString(),
     }
-    let id = existing?.id
-    if (id) await db.invoices.put({ ...rec, id })
-    else id = await db.invoices.add(rec)
-    if (andPdf && settings) invoicePDF({ ...rec, id }, settings)
+    if (existing?.id) await ldb.invoices.update(existing.id, rec)
+    else await ldb.invoices.add(rec as Invoice)
+    if (andPdf && current) invoicePDF(rec as Invoice, pdfBiz(current))
     onDone()
   }
 
@@ -207,8 +215,12 @@ export default function Invoices({
 }: {
   mode?: 'invoices' | 'quotes'
 } = {}) {
-  const settings = useSettings()
-  const all = useLiveQuery(() => db.invoices.orderBy('date').reverse().toArray(), [])
+  const { current } = useBusiness()
+  const bid = current?.id ?? ''
+  const all = useLiveQuery(
+    () => (bid ? ldb.invoices.where('businessId').equals(bid).toArray().then((r) => r.sort((a, b) => b.date.localeCompare(a.date))) : []),
+    [bid],
+  )
   const [modal, setModal] = useState<null | { inv?: Invoice }>(null)
 
   const isQuotes = mode === 'quotes'
@@ -219,9 +231,9 @@ export default function Invoices({
   if (!all) return <div className="text-slate-400">Cargando…</div>
   const invoices = all.filter((i) => allowedTypes.includes(i.docType))
 
-  async function remove(id?: number) {
+  async function remove(id?: string) {
     if (!id) return
-    if (confirm('¿Eliminar este documento?')) await db.invoices.delete(id)
+    if (confirm('¿Eliminar este documento?')) await removeRow('invoices', id)
   }
 
   return (
@@ -257,7 +269,7 @@ export default function Invoices({
                   <Button
                     variant="outline"
                     className="flex-1"
-                    onClick={() => settings && invoicePDF(inv, settings)}
+                    onClick={() => current && invoicePDF(inv, pdfBiz(current))}
                   >
                     ⬇ PDF
                   </Button>

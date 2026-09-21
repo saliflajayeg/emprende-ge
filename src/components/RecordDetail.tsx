@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, type RecordCard, type RecordEntry } from '../db/db'
+import { ldb, removeRow, type RecordCard, type RecordEntry } from '../cloud/localdb'
+import { useBusiness } from '../cloud/business'
 import { formatDate, todayISO } from '../lib/format'
 import { fileToDataURL } from '../lib/image'
-import { recordPDF } from '../lib/pdf'
-import { useSettings } from '../lib/hooks'
+import { recordPDF, type PdfBusiness } from '../lib/pdf'
 import { Button, Input, Textarea, EmptyState } from './ui'
 
 export default function RecordDetail({
@@ -16,9 +16,9 @@ export default function RecordDetail({
   onEdit: () => void
   onClose: () => void
 }) {
-  const settings = useSettings()
+  const { current } = useBusiness()
   const entries = useLiveQuery(
-    () => db.recordEntries.where('recordId').equals(record.id!).reverse().sortBy('date'),
+    () => ldb.recordEntries.where('recordId').equals(record.id).reverse().sortBy('date'),
     [record.id],
   )
   const [text, setText] = useState('')
@@ -39,39 +39,47 @@ export default function RecordDetail({
 
   async function addEntry() {
     if (!text.trim() && !photo) return
-    await db.recordEntries.add({
-      recordId: record.id!,
+    await ldb.recordEntries.add({
+      recordId: record.id,
       date,
       text: text.trim(),
       photo,
       createdAt: new Date().toISOString(),
-    })
+    } as RecordEntry)
     setText('')
     setPhoto(undefined)
     setDate(todayISO())
   }
 
-  async function delEntry(id?: number) {
+  async function delEntry(id?: string) {
     if (!id) return
-    if (confirm('¿Eliminar esta entrada del seguimiento?')) await db.recordEntries.delete(id)
+    if (confirm('¿Eliminar esta entrada del seguimiento?')) await removeRow('recordEntries', id)
   }
 
   async function exportPDF() {
-    if (!settings || !entries) return
+    if (!current || !entries) return
+    const biz: PdfBusiness = {
+      businessName: current.name,
+      sector: current.sector,
+      address: current.address,
+      phone: current.phone,
+      currency: current.currency,
+    }
     // El PDF ordena cronológicamente (más antiguo primero)
     const ordered = [...entries].sort((a, b) => a.date.localeCompare(b.date))
-    recordPDF(record, ordered, settings)
+    recordPDF(record, ordered, biz)
   }
 
   async function toggleArchive() {
-    await db.records.update(record.id!, { archived: !record.archived })
+    await ldb.records.update(record.id, { archived: !record.archived })
     onClose()
   }
 
   async function del() {
     if (!confirm(`¿Eliminar la ficha de "${record.name}" y todo su seguimiento? No se puede deshacer.`)) return
-    await db.recordEntries.where('recordId').equals(record.id!).delete()
-    await db.records.delete(record.id!)
+    const kids = await ldb.recordEntries.where('recordId').equals(record.id).toArray()
+    for (const e of kids) await removeRow('recordEntries', e.id)
+    await removeRow('records', record.id)
     onClose()
   }
 

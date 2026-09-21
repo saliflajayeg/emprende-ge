@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { db, type RecordCard, type RecordField } from '../db/db'
+import { ldb, type RecordCard, type RecordField } from '../cloud/localdb'
 import { todayISO } from '../lib/format'
 import { fileToDataURL } from '../lib/image'
 import { Button, Field, Input } from './ui'
@@ -61,7 +61,7 @@ export default function RecordForm({
 
   async function save() {
     if (!form.name.trim()) return
-    const rec: RecordCard = {
+    const rec = {
       type: form.type.trim() || 'Ficha',
       name: form.name.trim(),
       registeredAt: form.registeredAt,
@@ -71,8 +71,8 @@ export default function RecordForm({
       archived: existing?.archived ?? false,
       createdAt: existing?.createdAt ?? new Date().toISOString(),
     }
-    if (existing?.id) await db.records.put({ ...rec, id: existing.id })
-    else await db.records.add(rec)
+    if (existing?.id) await ldb.records.update(existing.id, rec)
+    else await ldb.records.add(rec as RecordCard)
     onDone()
   }
 
