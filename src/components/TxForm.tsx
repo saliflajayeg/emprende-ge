@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ldb, type Kind, type Transaction, type TxStatus } from '../cloud/localdb'
 import { useBusiness } from '../cloud/business'
-import { PAYMENT_METHODS } from '../db/seed'
 import { todayISO } from '../lib/format'
 import { Button, Field, Input, Select, Textarea } from './ui'
+
+const PAYMENT_METHODS = ['Efectivo', 'Transferencia', 'Pago móvil', 'Tarjeta', 'Otro']
 
 export default function TxForm({
   kind: initialKind,
