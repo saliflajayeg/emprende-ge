@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { supabase } from '../lib/supabase'
 import { keysToCamel } from './api'
+import { setLocalBusiness } from './localdb'
+import { startSync, stopSync } from './sync'
 import { useAuth } from './auth'
 
 export interface Business {
@@ -101,6 +103,15 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
 
   const current = businesses.find((b) => b.id === currentId) ?? null
   const role = current ? roleByBiz[current.id] ?? null : null
+
+  // Al elegir/cambiar de negocio: fija el negocio local y arranca su sync.
+  useEffect(() => {
+    const id = current?.id ?? null
+    setLocalBusiness(id)
+    if (id) startSync(id)
+    else stopSync()
+    return () => stopSync()
+  }, [current?.id])
 
   return (
     <Ctx.Provider value={{ businesses, current, role, isAdmin, loading, setCurrent, reload, createBusiness }}>

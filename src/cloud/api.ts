@@ -10,7 +10,7 @@ export function keysToCamel<T = any>(row: Record<string, any>): T {
   for (const k in row) out[toCamel(k)] = row[k]
   return out as T
 }
-function keysToSnake(obj: Record<string, any>): Record<string, any> {
+export function keysToSnake(obj: Record<string, any>): Record<string, any> {
   const out: Record<string, any> = {}
   for (const k in obj) {
     if (obj[k] === undefined) continue
