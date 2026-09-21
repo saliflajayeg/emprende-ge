@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ldb, removeRow, type Item, type ItemKind } from '../cloud/localdb'
 import { useBusiness } from '../cloud/business'
+import { usePerms } from '../cloud/perms'
 import { money, moneyPlain } from '../lib/format'
 import { Button, Card, Modal, Field, Input, Textarea, EmptyState } from '../components/ui'
 
@@ -83,6 +84,7 @@ function ItemForm({ cfg, existing, onDone }: { cfg: CatalogConfig; existing?: It
 
 export default function Catalog({ cfg }: { cfg: CatalogConfig }) {
   const bid = useBusiness().current?.id ?? ''
+  const { canDelete } = usePerms()
   const items = useLiveQuery(() => (bid ? ldb.items.where('businessId').equals(bid).filter((i) => i.kind === cfg.kind).toArray() : []), [bid, cfg.kind])
   const [modal, setModal] = useState<null | { item?: Item }>(null)
   const [query, setQuery] = useState('')
@@ -154,7 +156,7 @@ export default function Catalog({ cfg }: { cfg: CatalogConfig }) {
                         <button onClick={() => publishToSemu(it)} className="mr-2 text-slate-400 hover:text-teal-600" title="Publicar en Mercado Semu">🏪</button>
                       )}
                       <button onClick={() => setModal({ item: it })} className="mr-2 text-slate-400 hover:text-teal-600" title="Editar">✎</button>
-                      <button onClick={() => remove(it.id)} className="text-slate-400 hover:text-red-600" title="Eliminar">🗑</button>
+                      {canDelete && <button onClick={() => remove(it.id)} className="text-slate-400 hover:text-red-600" title="Eliminar">🗑</button>}
                     </td>
                   </tr>
                 )

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ldb, removeRow, type Invoice, type InvoiceItem, type DocType } from '../cloud/localdb'
 import { useBusiness, type Business } from '../cloud/business'
+import { usePerms } from '../cloud/perms'
 import { money, formatDate, todayISO } from '../lib/format'
 import { invoicePDF, invoiceTotals, type PdfBusiness } from '../lib/pdf'
 import { Button, Card, Modal, Field, Input, Textarea, Select, Badge, EmptyState } from '../components/ui'
@@ -216,6 +217,7 @@ export default function Invoices({
   mode?: 'invoices' | 'quotes'
 } = {}) {
   const { current } = useBusiness()
+  const { canDelete } = usePerms()
   const bid = current?.id ?? ''
   const all = useLiveQuery(
     () => (bid ? ldb.invoices.where('businessId').equals(bid).toArray().then((r) => r.sort((a, b) => b.date.localeCompare(a.date))) : []),
@@ -274,7 +276,7 @@ export default function Invoices({
                     ⬇ PDF
                   </Button>
                   <Button variant="ghost" onClick={() => setModal({ inv })}>✎</Button>
-                  <Button variant="ghost" onClick={() => remove(inv.id)}>🗑</Button>
+                  {canDelete && <Button variant="ghost" onClick={() => remove(inv.id)}>🗑</Button>}
                 </div>
               </Card>
             )

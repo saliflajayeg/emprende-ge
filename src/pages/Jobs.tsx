@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ldb, removeRow, type Job, type JobStatus } from '../cloud/localdb'
 import { useBusiness } from '../cloud/business'
+import { usePerms } from '../cloud/perms'
 import { formatDate } from '../lib/format'
 import { Button, Card, Modal, Field, Input, Select, Textarea, EmptyState } from '../components/ui'
 
@@ -79,6 +80,7 @@ function JobForm({ existing, onDone }: { existing?: Job; onDone: () => void }) {
 
 export default function Jobs() {
   const bid = useBusiness().current?.id ?? ''
+  const { canDelete } = usePerms()
   const jobs = useLiveQuery(() => (bid ? ldb.jobs.where('businessId').equals(bid).toArray() : []), [bid])
   const [modal, setModal] = useState<null | { job?: Job }>(null)
   const [showDone, setShowDone] = useState(false)
@@ -136,7 +138,7 @@ export default function Jobs() {
                 </div>
                 <div className="flex gap-1">
                   <button onClick={() => setModal({ job: j })} className="rounded p-1 text-slate-400 hover:text-teal-600" title="Editar">✎</button>
-                  <button onClick={() => remove(j.id)} className="rounded p-1 text-slate-400 hover:text-red-600" title="Eliminar">🗑</button>
+                  {canDelete && <button onClick={() => remove(j.id)} className="rounded p-1 text-slate-400 hover:text-red-600" title="Eliminar">🗑</button>}
                 </div>
               </Card>
             )

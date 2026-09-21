@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ldb, removeRow, type Employee } from '../cloud/localdb'
 import { useBusiness } from '../cloud/business'
+import { usePerms } from '../cloud/perms'
 import { money } from '../lib/format'
 import { Button, Card, Modal, Field, Input, Textarea, EmptyState } from '../components/ui'
 
@@ -49,6 +50,7 @@ function EmpForm({ existing, onDone }: { existing?: Employee; onDone: () => void
 
 export default function Employees() {
   const bid = useBusiness().current?.id ?? ''
+  const { canDelete } = usePerms()
   const emps = useLiveQuery(
     () => (bid ? ldb.employees.where('businessId').equals(bid).toArray().then((r) => r.sort((a, b) => a.name.localeCompare(b.name))) : []),
     [bid],
@@ -85,7 +87,7 @@ export default function Employees() {
                 </div>
                 <div className="flex shrink-0 gap-1">
                   <button onClick={() => setModal({ emp: e })} className="text-slate-400 hover:text-teal-600" title="Editar">✎</button>
-                  <button onClick={() => remove(e.id)} className="text-slate-400 hover:text-red-600" title="Eliminar">🗑</button>
+                  {canDelete && <button onClick={() => remove(e.id)} className="text-slate-400 hover:text-red-600" title="Eliminar">🗑</button>}
                 </div>
               </div>
             </Card>

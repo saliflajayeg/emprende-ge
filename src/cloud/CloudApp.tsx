@@ -12,8 +12,10 @@ import Settings from '../pages/Settings'
 import Invoices from '../pages/Invoices'
 import Records from '../pages/Records'
 import Reports from '../pages/Reports'
+import { usePerms } from './perms'
 
 export default function CloudApp() {
+  const { canSeeReports, canSeeSettings } = usePerms()
   return (
     <CloudLayout>
       <Routes>
@@ -38,8 +40,8 @@ export default function CloudApp() {
         <Route path="/presupuestos" element={<Invoices mode="quotes" />} />
 
         <Route path="/fichas" element={<Records />} />
-        <Route path="/informes" element={<Reports />} />
-        <Route path="/ajustes" element={<Settings />} />
+        <Route path="/informes" element={canSeeReports ? <Reports /> : <Navigate to="/" replace />} />
+        <Route path="/ajustes" element={canSeeSettings ? <Settings /> : <Navigate to="/" replace />} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

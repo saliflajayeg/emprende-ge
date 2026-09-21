@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ldb, removeRow, type RecordCard, type RecordEntry } from '../cloud/localdb'
 import { useBusiness } from '../cloud/business'
+import { usePerms } from '../cloud/perms'
 import { formatDate, todayISO } from '../lib/format'
 import { fileToDataURL } from '../lib/image'
 import { recordPDF, type PdfBusiness } from '../lib/pdf'
@@ -17,6 +18,7 @@ export default function RecordDetail({
   onClose: () => void
 }) {
   const { current } = useBusiness()
+  const { canDelete } = usePerms()
   const entries = useLiveQuery(
     () => ldb.recordEntries.where('recordId').equals(record.id).reverse().sortBy('date'),
     [record.id],
@@ -127,7 +129,7 @@ export default function RecordDetail({
         <Button onClick={exportPDF}>⬇ Expediente PDF</Button>
         <Button variant="outline" onClick={onEdit}>✎ Editar datos</Button>
         <Button variant="ghost" onClick={toggleArchive}>{record.archived ? 'Reactivar' : 'Archivar'}</Button>
-        <Button variant="ghost" onClick={del} className="text-red-600">Eliminar</Button>
+        {canDelete && <Button variant="ghost" onClick={del} className="text-red-600">Eliminar</Button>}
       </div>
 
       {/* Nueva entrada de seguimiento */}
@@ -172,9 +174,11 @@ export default function RecordDetail({
                 <span className="absolute -left-[5px] top-1.5 h-2 w-2 rounded-full bg-teal-500" />
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-medium text-slate-500">{formatDate(e.date)}</span>
-                  <button onClick={() => delEntry(e.id)} className="text-xs text-slate-300 hover:text-red-500">
-                    eliminar
-                  </button>
+                  {canDelete && (
+                    <button onClick={() => delEntry(e.id)} className="text-xs text-slate-300 hover:text-red-500">
+                      eliminar
+                    </button>
+                  )}
                 </div>
                 {e.text && <p className="whitespace-pre-wrap text-sm text-slate-700">{e.text}</p>}
                 {e.photo && <img src={e.photo} alt="" className="mt-1 max-h-40 rounded-lg object-cover" />}

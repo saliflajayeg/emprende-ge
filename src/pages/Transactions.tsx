@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ldb, removeRow, type Transaction, type Kind } from '../cloud/localdb'
 import { useBusiness } from '../cloud/business'
+import { usePerms } from '../cloud/perms'
 import { money, formatDate } from '../lib/format'
 import { downloadCSV } from '../lib/csv'
 import { Button, Card, Modal, Badge, Select, Input, EmptyState } from '../components/ui'
@@ -19,6 +20,7 @@ export default function Transactions({
   emptyHint?: string
 } = {}) {
   const bid = useBusiness().current?.id ?? ''
+  const { canDelete } = usePerms()
   const txs = useLiveQuery(() => (bid ? ldb.transactions.where('businessId').equals(bid).toArray() : []), [bid])
   const categories = useLiveQuery(() => (bid ? ldb.categories.where('businessId').equals(bid).toArray() : []), [bid])
   const contacts = useLiveQuery(() => (bid ? ldb.contacts.where('businessId').equals(bid).toArray() : []), [bid])
@@ -143,7 +145,7 @@ export default function Transactions({
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-right">
                     <button onClick={() => setModal({ kind: t.kind, tx: t })} className="mr-2 text-slate-400 hover:text-teal-600" title="Editar">✎</button>
-                    <button onClick={() => remove(t.id)} className="text-slate-400 hover:text-red-600" title="Eliminar">🗑</button>
+                    {canDelete && <button onClick={() => remove(t.id)} className="text-slate-400 hover:text-red-600" title="Eliminar">🗑</button>}
                   </td>
                 </tr>
               ))}

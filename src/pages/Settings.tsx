@@ -2,17 +2,21 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ldb, removeRow, type Kind, type Category } from '../cloud/localdb'
 import { useBusiness } from '../cloud/business'
+import { useAuth } from '../cloud/auth'
 import { BUSINESS_TYPES, MODULES, TOGGLEABLE, modulesFor, type ModuleId } from '../modules'
 import { Card, Button, Field, Input, Select } from '../components/ui'
 
 const PALETTE = ['#0d9488', '#0ea5e9', '#8b5cf6', '#ef4444', '#f97316', '#eab308', '#84cc16', '#ec4899', '#6366f1']
 
 export default function Settings() {
-  const { current, updateBusiness } = useBusiness()
+  const { current, updateBusiness, members, createInvite, removeMember } = useBusiness()
+  const { user } = useAuth()
   const bid = current?.id ?? ''
   const categories = useLiveQuery(() => (bid ? ldb.categories.where('businessId').equals(bid).toArray() : []), [bid])
   const [msg, setMsg] = useState('')
   const [newCat, setNewCat] = useState<{ income: string; expense: string }>({ income: '', expense: '' })
+  const [invite, setInvite] = useState<string | null>(null)
+  const [inviteBusy, setInviteBusy] = useState(false)
 
   if (!current || !categories) return <div className="text-slate-400">Cargando…</div>
 
@@ -57,6 +61,28 @@ export default function Settings() {
     if (confirm('¿Eliminar la categoría? Los movimientos existentes quedarán sin categoría.'))
       await removeRow('categories', id)
   }
+
+  async function genInvite() {
+    setInviteBusy(true)
+    try {
+      setInvite(await createInvite())
+    } catch (e) {
+      flash('Error: ' + (e as Error).message)
+    }
+    setInviteBusy(false)
+  }
+
+  async function kickMember(userId: string, name: string) {
+    if (!confirm(`¿Quitar a "${name}" del negocio? Perderá el acceso a estos datos.`)) return
+    try {
+      await removeMember(userId)
+      flash('Empleado quitado ✓')
+    } catch (e) {
+      flash('Error: ' + (e as Error).message)
+    }
+  }
+
+  const employee = members.find((m) => m.role === 'employee')
 
   const Cats = ({ kind, title }: { kind: Kind; title: string }) => (
     <div>
@@ -170,6 +196,51 @@ export default function Settings() {
           <Cats kind="income" title="Ingresos" />
           <Cats kind="expense" title="Gastos" />
         </div>
+      </Card>
+
+      <Card>
+        <h2 className="mb-1 font-semibold text-slate-800">👥 Equipo (acceso compartido)</h2>
+        <p className="mb-3 text-sm text-slate-500">
+          Da acceso a <b>una</b> persona más (un empleado). Comparte con ella los mismos datos, en tiempo real y
+          también sin conexión. El empleado puede registrar y editar, pero no borra, ni ve Informes ni Ajustes.
+        </p>
+
+        <div className="space-y-2">
+          {members.map((m) => (
+            <div key={m.userId} className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2">
+              <div className="min-w-0">
+                <div className="truncate text-sm font-medium text-slate-800">
+                  {m.name || (m.role === 'owner' ? 'Dueño/a' : 'Empleado')}
+                  {m.userId === user?.id && <span className="ml-1 text-xs text-slate-400">(tú)</span>}
+                </div>
+                <div className="text-xs text-slate-400">{m.role === 'owner' ? 'Dueño/a' : 'Empleado'}</div>
+              </div>
+              {m.role === 'employee' && (
+                <button onClick={() => kickMember(m.userId, m.name)} className="text-sm text-red-500 hover:underline">
+                  Quitar
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {!employee && (
+          <div className="mt-3">
+            {invite ? (
+              <div className="rounded-lg bg-teal-50 p-4 text-center">
+                <div className="text-xs uppercase text-teal-700">Código de invitación</div>
+                <div className="my-1 font-mono text-3xl font-bold tracking-widest text-teal-800">{invite}</div>
+                <p className="text-xs text-slate-500">
+                  Dáselo a tu empleado. En su móvil: abre GEmprende → crea su cuenta → «Trabajo para un negocio» → escribe este código.
+                </p>
+              </div>
+            ) : (
+              <Button onClick={genInvite} disabled={inviteBusy}>
+                {inviteBusy ? 'Generando…' : '➕ Invitar a un empleado'}
+              </Button>
+            )}
+          </div>
+        )}
       </Card>
 
       <Card>

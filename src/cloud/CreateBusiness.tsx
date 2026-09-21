@@ -5,8 +5,9 @@ import { useAuth } from './auth'
 import { Button, Field, Input, Select } from '../components/ui'
 
 export default function CreateBusiness({ onCancel }: { onCancel?: () => void }) {
-  const { createBusiness } = useBusiness()
+  const { createBusiness, redeemInvite } = useBusiness()
   const { signOut } = useAuth()
+  const [mode, setMode] = useState<'choose' | 'create' | 'join'>('choose')
   const [step, setStep] = useState(1)
   const [form, setForm] = useState({
     businessName: '',
@@ -15,10 +16,23 @@ export default function CreateBusiness({ onCancel }: { onCancel?: () => void }) 
     currency: 'XAF',
     taxRate: 15,
   })
+  const [join, setJoin] = useState({ code: '', name: '' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const set = (k: string, v: string | number) => setForm((f) => ({ ...f, [k]: v }))
   const selectedType = BUSINESS_TYPES.find((b) => b.id === form.businessType)
+
+  async function doJoin() {
+    setSaving(true)
+    setError('')
+    try {
+      await redeemInvite(join.code, join.name || 'Empleado')
+      onCancel?.()
+    } catch (e) {
+      setError((e as Error).message)
+      setSaving(false)
+    }
+  }
 
   async function finish() {
     setSaving(true)
@@ -47,8 +61,12 @@ export default function CreateBusiness({ onCancel }: { onCancel?: () => void }) 
           <div className="flex items-center gap-3">
             <img src="/logo-mark.png" alt="GEmprende" className="h-11 w-11 rounded-xl object-cover" />
             <div>
-              <h1 className="text-xl font-bold text-slate-800">Nuevo negocio</h1>
-              <p className="text-sm text-slate-500">Configúralo en un momento</p>
+              <h1 className="text-xl font-bold text-slate-800">
+                {mode === 'join' ? 'Unirme a un negocio' : 'Nuevo negocio'}
+              </h1>
+              <p className="text-sm text-slate-500">
+                {mode === 'join' ? 'Con el código que te dio el dueño' : 'Configúralo en un momento'}
+              </p>
             </div>
           </div>
           {onCancel ? (
@@ -58,7 +76,56 @@ export default function CreateBusiness({ onCancel }: { onCancel?: () => void }) 
           )}
         </div>
 
-        {step === 1 && (
+        {mode === 'choose' && (
+          <div className="space-y-3">
+            <button
+              onClick={() => setMode('create')}
+              className="flex w-full items-center gap-3 rounded-xl border border-slate-200 p-4 text-left transition hover:border-teal-400 hover:bg-teal-50"
+            >
+              <span className="text-2xl">🏪</span>
+              <div>
+                <div className="font-semibold text-slate-800">Tengo un negocio</div>
+                <div className="text-sm text-slate-500">Créalo y empieza a gestionarlo</div>
+              </div>
+            </button>
+            <button
+              onClick={() => setMode('join')}
+              className="flex w-full items-center gap-3 rounded-xl border border-slate-200 p-4 text-left transition hover:border-teal-400 hover:bg-teal-50"
+            >
+              <span className="text-2xl">👥</span>
+              <div>
+                <div className="font-semibold text-slate-800">Trabajo para un negocio</div>
+                <div className="text-sm text-slate-500">Únete con el código de invitación del dueño</div>
+              </div>
+            </button>
+          </div>
+        )}
+
+        {mode === 'join' && (
+          <div className="space-y-4">
+            <Field label="Código de invitación *">
+              <Input
+                value={join.code}
+                onChange={(e) => setJoin((j) => ({ ...j, code: e.target.value.toUpperCase() }))}
+                placeholder="Ej. A1B2C3"
+                autoFocus
+                className="text-center text-lg font-mono tracking-widest"
+              />
+            </Field>
+            <Field label="Tu nombre">
+              <Input value={join.name} onChange={(e) => setJoin((j) => ({ ...j, name: e.target.value }))} placeholder="Cómo te verá el dueño" />
+            </Field>
+            {error && <p className="text-sm text-red-500">{error}</p>}
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => { setMode('choose'); setError('') }}>← Atrás</Button>
+              <Button className="flex-1" onClick={doJoin} disabled={saving || join.code.trim().length < 4}>
+                {saving ? 'Uniéndome…' : 'Unirme al negocio'}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {mode === 'create' && step === 1 && (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-slate-800">¿Qué tipo de negocio es?</h2>
             <div className="grid grid-cols-2 gap-2">
@@ -86,7 +153,7 @@ export default function CreateBusiness({ onCancel }: { onCancel?: () => void }) 
           </div>
         )}
 
-        {step === 2 && (
+        {mode === 'create' && step === 2 && (
           <div className="space-y-4">
             <h2 className="text-lg font-semibold text-slate-800">Datos del negocio</h2>
             <Field label="Nombre del negocio *">

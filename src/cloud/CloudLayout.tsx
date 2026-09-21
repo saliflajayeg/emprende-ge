@@ -38,17 +38,21 @@ function NavItems({ items, onClick }: { items: NavEntry[]; onClick?: () => void 
 
 export default function CloudLayout({ children }: { children: ReactNode }) {
   const { signOut } = useAuth()
-  const { current, businesses, setCurrent } = useBusiness()
+  const { current, businesses, setCurrent, role } = useBusiness()
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
 
+  const isEmployee = role === 'employee'
   const enabled = (current?.enabledModules as ModuleId[] | undefined) ?? modulesFor(current?.businessType)
-  const NAV: NavEntry[] = navModules(enabled).map((m) => ({
-    to: m.path,
-    label: m.id === 'records' ? current?.recordsLabel || m.label : m.label,
-    icon: m.icon,
-    end: m.path === '/',
-  }))
+  const NAV: NavEntry[] = navModules(enabled)
+    // El empleado no ve Informes ni Ajustes
+    .filter((m) => !(isEmployee && (m.id === 'reports' || m.id === 'settings')))
+    .map((m) => ({
+      to: m.path,
+      label: m.id === 'records' ? current?.recordsLabel || m.label : m.label,
+      icon: m.icon,
+      end: m.path === '/',
+    }))
 
   const Switcher = () => (
     <select

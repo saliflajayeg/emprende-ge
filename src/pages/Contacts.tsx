@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ldb, removeRow, type Contact, type ContactType } from '../cloud/localdb'
 import { useBusiness } from '../cloud/business'
+import { usePerms } from '../cloud/perms'
 import { Button, Card, Modal, Field, Input, Textarea, EmptyState } from '../components/ui'
 
 function ContactForm({ existing, onDone }: { existing?: Contact; onDone: () => void }) {
@@ -53,6 +54,7 @@ function ContactForm({ existing, onDone }: { existing?: Contact; onDone: () => v
 
 export default function Contacts() {
   const bid = useBusiness().current?.id ?? ''
+  const { canDelete } = usePerms()
   const contacts = useLiveQuery(() => (bid ? ldb.contacts.where('businessId').equals(bid).toArray() : []), [bid])
   const [modal, setModal] = useState<null | { c?: Contact }>(null)
   const [tab, setTab] = useState<ContactType>('client')
@@ -98,7 +100,7 @@ export default function Contacts() {
                 </div>
                 <div className="flex shrink-0 gap-1">
                   <button onClick={() => setModal({ c })} className="text-slate-400 hover:text-teal-600" title="Editar">✎</button>
-                  <button onClick={() => remove(c.id)} className="text-slate-400 hover:text-red-600" title="Eliminar">🗑</button>
+                  {canDelete && <button onClick={() => remove(c.id)} className="text-slate-400 hover:text-red-600" title="Eliminar">🗑</button>}
                 </div>
               </div>
             </Card>
