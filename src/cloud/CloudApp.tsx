@@ -12,10 +12,13 @@ import Settings from '../pages/Settings'
 import Invoices from '../pages/Invoices'
 import Records from '../pages/Records'
 import Reports from '../pages/Reports'
+import AdminPanel from './AdminPanel'
 import { usePerms } from './perms'
+import { useBusiness } from './business'
 
 export default function CloudApp() {
   const { canSeeReports, canSeeSettings } = usePerms()
+  const { isAdmin } = useBusiness()
   return (
     <CloudLayout>
       <Routes>
@@ -42,6 +45,7 @@ export default function CloudApp() {
         <Route path="/fichas" element={<Records />} />
         <Route path="/informes" element={canSeeReports ? <Reports /> : <Navigate to="/" replace />} />
         <Route path="/ajustes" element={canSeeSettings ? <Settings /> : <Navigate to="/" replace />} />
+        <Route path="/admin" element={isAdmin ? <AdminPanel /> : <Navigate to="/" replace />} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

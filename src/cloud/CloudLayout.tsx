@@ -38,7 +38,7 @@ function NavItems({ items, onClick }: { items: NavEntry[]; onClick?: () => void 
 
 export default function CloudLayout({ children }: { children: ReactNode }) {
   const { signOut } = useAuth()
-  const { current, businesses, setCurrent, role } = useBusiness()
+  const { current, businesses, setCurrent, role, isAdmin } = useBusiness()
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
 
@@ -53,6 +53,7 @@ export default function CloudLayout({ children }: { children: ReactNode }) {
       icon: m.icon,
       end: m.path === '/',
     }))
+  if (isAdmin) NAV.push({ to: '/admin', label: 'Admin', icon: '🛡️' })
 
   const Switcher = () => (
     <select
