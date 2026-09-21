@@ -1,4 +1,4 @@
-import type { Category, Transaction } from '../db/db'
+import type { Category, Transaction } from '../cloud/localdb'
 import { monthKey, shortMonth } from './format'
 
 export function sumIn(txs: Transaction[], kind: 'income' | 'expense', month?: string) {
@@ -22,34 +22,24 @@ export function byCategory(
   kind: 'income' | 'expense',
   month?: string,
 ) {
-  const map = new Map<number | 0, number>()
+  const map = new Map<string, number>()
   for (const t of txs) {
     if (t.kind !== kind) continue
     if (month && monthKey(t.date) !== month) continue
-    const key = t.categoryId ?? 0
+    const key = t.categoryId ?? ''
     map.set(key, (map.get(key) ?? 0) + t.amount)
   }
   const out = [...map.entries()].map(([id, amount]) => {
     const cat = categories.find((c) => c.id === id)
-    return {
-      name: cat?.name ?? 'Sin categoría',
-      color: cat?.color ?? '#94a3b8',
-      amount,
-    }
+    return { name: cat?.name ?? 'Sin categoría', color: cat?.color ?? '#94a3b8', amount }
   })
   return out.sort((a, b) => b.amount - a.amount)
 }
 
 export function pendingTotals(txs: Transaction[]) {
-  const toCollect = txs
-    .filter((t) => t.kind === 'income' && t.status === 'pending')
-    .reduce((s, t) => s + t.amount, 0)
-  const toPay = txs
-    .filter((t) => t.kind === 'expense' && t.status === 'pending')
-    .reduce((s, t) => s + t.amount, 0)
+  const toCollect = txs.filter((t) => t.kind === 'income' && t.status === 'pending').reduce((s, t) => s + t.amount, 0)
+  const toPay = txs.filter((t) => t.kind === 'expense' && t.status === 'pending').reduce((s, t) => s + t.amount, 0)
   const today = new Date().toISOString().slice(0, 10)
-  const overdue = txs.filter(
-    (t) => t.status === 'pending' && t.dueDate && t.dueDate < today,
-  )
+  const overdue = txs.filter((t) => t.status === 'pending' && t.dueDate && t.dueDate < today)
   return { toCollect, toPay, overdue }
 }

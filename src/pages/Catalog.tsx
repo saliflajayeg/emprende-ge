@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, type Item, type ItemKind } from '../db/db'
+import { ldb, removeRow, type Item, type ItemKind } from '../cloud/localdb'
+import { useBusiness } from '../cloud/business'
 import { money, moneyPlain } from '../lib/format'
 import { Button, Card, Modal, Field, Input, Textarea, EmptyState } from '../components/ui'
 
@@ -13,7 +14,6 @@ interface CatalogConfig {
 
 const MERCADO_SEMU_URL = 'https://mercadosemu.com'
 
-// Abre el formulario de "vender" de Mercado Semu precargado con este artículo.
 function publishToSemu(it: Item) {
   const params = new URLSearchParams({ from: 'gemprende', title: it.name })
   if (it.price) params.set('price', String(it.price))
@@ -37,7 +37,7 @@ function ItemForm({ cfg, existing, onDone }: { cfg: CatalogConfig; existing?: It
 
   async function save() {
     if (!form.name.trim()) return
-    const rec: Item = {
+    const rec = {
       kind: cfg.kind,
       name: form.name.trim(),
       price: Number(form.price) || 0,
@@ -49,77 +49,58 @@ function ItemForm({ cfg, existing, onDone }: { cfg: CatalogConfig; existing?: It
       notes: form.notes.trim(),
       createdAt: existing?.createdAt ?? new Date().toISOString(),
     }
-    if (existing?.id) await db.items.put({ ...rec, id: existing.id })
-    else await db.items.add(rec)
+    if (existing?.id) await ldb.items.update(existing.id, rec)
+    else await ldb.items.add(rec as Item)
     onDone()
   }
 
   return (
     <div className="space-y-4">
-      <Field label="Nombre *">
-        <Input value={form.name} onChange={(e) => set('name', e.target.value)} autoFocus placeholder={cfg.singular} />
-      </Field>
+      <Field label="Nombre *"><Input value={form.name} onChange={(e) => set('name', e.target.value)} autoFocus placeholder={cfg.singular} /></Field>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Precio">
-          <Input type="number" value={form.price} onChange={(e) => set('price', e.target.value)} placeholder="0" />
-        </Field>
-        <Field label="Unidad">
-          <Input value={form.unit} onChange={(e) => set('unit', e.target.value)} placeholder="unidad, kg, corte…" />
-        </Field>
+        <Field label="Precio"><Input type="number" value={form.price} onChange={(e) => set('price', e.target.value)} placeholder="0" /></Field>
+        <Field label="Unidad"><Input value={form.unit} onChange={(e) => set('unit', e.target.value)} placeholder="unidad, kg, corte…" /></Field>
       </div>
-      <Field label="Categoría">
-        <Input value={form.category} onChange={(e) => set('category', e.target.value)} placeholder="Opcional" />
-      </Field>
-
+      <Field label="Categoría"><Input value={form.category} onChange={(e) => set('category', e.target.value)} placeholder="Opcional" /></Field>
       <label className="flex items-center gap-2 text-sm text-slate-700">
         <input type="checkbox" checked={form.trackStock} onChange={(e) => set('trackStock', e.target.checked)} />
         Controlar stock (existencias)
       </label>
       {form.trackStock && (
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Existencias actuales">
-            <Input type="number" value={form.stock} onChange={(e) => set('stock', e.target.value)} placeholder="0" />
-          </Field>
-          <Field label="Aviso si baja de">
-            <Input type="number" value={form.lowStock} onChange={(e) => set('lowStock', e.target.value)} placeholder="0" />
-          </Field>
+          <Field label="Existencias actuales"><Input type="number" value={form.stock} onChange={(e) => set('stock', e.target.value)} placeholder="0" /></Field>
+          <Field label="Aviso si baja de"><Input type="number" value={form.lowStock} onChange={(e) => set('lowStock', e.target.value)} placeholder="0" /></Field>
         </div>
       )}
-
-      <Field label="Notas">
-        <Textarea rows={2} value={form.notes} onChange={(e) => set('notes', e.target.value)} />
-      </Field>
-
+      <Field label="Notas"><Textarea rows={2} value={form.notes} onChange={(e) => set('notes', e.target.value)} /></Field>
       <div className="flex gap-2 pt-2">
         <Button variant="outline" onClick={onDone} className="flex-1">Cancelar</Button>
-        <Button onClick={save} className="flex-1" disabled={!form.name.trim()}>
-          {existing ? 'Guardar' : 'Añadir'}
-        </Button>
+        <Button onClick={save} className="flex-1" disabled={!form.name.trim()}>{existing ? 'Guardar' : 'Añadir'}</Button>
       </div>
     </div>
   )
 }
 
 export default function Catalog({ cfg }: { cfg: CatalogConfig }) {
-  const items = useLiveQuery(() => db.items.where('kind').equals(cfg.kind).sortBy('name'), [cfg.kind])
+  const bid = useBusiness().current?.id ?? ''
+  const items = useLiveQuery(() => (bid ? ldb.items.where('businessId').equals(bid).filter((i) => i.kind === cfg.kind).toArray() : []), [bid, cfg.kind])
   const [modal, setModal] = useState<null | { item?: Item }>(null)
   const [query, setQuery] = useState('')
 
   const list = useMemo(
-    () => (items ?? []).filter((i) => !query || `${i.name} ${i.category}`.toLowerCase().includes(query.toLowerCase())),
+    () => (items ?? []).filter((i) => !query || `${i.name} ${i.category}`.toLowerCase().includes(query.toLowerCase())).sort((a, b) => a.name.localeCompare(b.name)),
     [items, query],
   )
 
   if (!items) return <div className="text-slate-400">Cargando…</div>
 
-  async function remove(id?: number) {
+  async function remove(id?: string) {
     if (!id) return
-    if (confirm('¿Eliminar este elemento?')) await db.items.delete(id)
+    if (confirm('¿Eliminar este elemento?')) await removeRow('items', id)
   }
-
   async function adjust(it: Item, delta: number) {
     if (!it.id) return
-    await db.items.update(it.id, { stock: Math.max(0, (it.stock || 0) + delta) })
+    await ldb.items.update(it.id, { stock: Math.max(0, (it.stock || 0) + delta) })
   }
 
   return (
@@ -129,14 +110,10 @@ export default function Catalog({ cfg }: { cfg: CatalogConfig }) {
         <Button onClick={() => setModal({})}>+ Nuevo {cfg.singular.toLowerCase()}</Button>
       </div>
 
-      <Card>
-        <Input placeholder="Buscar…" value={query} onChange={(e) => setQuery(e.target.value)} />
-      </Card>
+      <Card><Input placeholder="Buscar…" value={query} onChange={(e) => setQuery(e.target.value)} /></Card>
 
       {cfg.kind !== 'ingredient' && list.length > 0 && (
-        <p className="text-xs text-slate-400">
-          🏪 Pulsa el icono de tienda en un artículo para publicarlo en <b>Mercado Semu</b>.
-        </p>
+        <p className="text-xs text-slate-400">🏪 Pulsa el icono de tienda en un artículo para publicarlo en <b>Mercado Semu</b>.</p>
       )}
 
       {list.length === 0 ? (
@@ -159,36 +136,22 @@ export default function Catalog({ cfg }: { cfg: CatalogConfig }) {
                   <tr key={it.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
                     <td className="px-4 py-3">
                       <div className="font-medium text-slate-800">{it.name}</div>
-                      <div className="text-xs text-slate-400">
-                        {[it.category, it.unit].filter(Boolean).join(' · ')}
-                      </div>
+                      <div className="text-xs text-slate-400">{[it.category, it.unit].filter(Boolean).join(' · ')}</div>
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right font-semibold text-slate-700">
-                      {it.price ? money(it.price) : '—'}
-                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right font-semibold text-slate-700">{it.price ? money(it.price) : '—'}</td>
                     <td className="px-4 py-3 text-center">
                       {it.trackStock ? (
                         <div className="inline-flex items-center gap-1">
                           <button onClick={() => adjust(it, -1)} className="grid h-6 w-6 place-items-center rounded bg-slate-100 hover:bg-slate-200">−</button>
-                          <span className={`w-10 text-center font-medium ${low ? 'text-red-600' : 'text-slate-700'}`}>
-                            {moneyPlain(it.stock)}
-                          </span>
+                          <span className={`w-10 text-center font-medium ${low ? 'text-red-600' : 'text-slate-700'}`}>{moneyPlain(it.stock)}</span>
                           <button onClick={() => adjust(it, 1)} className="grid h-6 w-6 place-items-center rounded bg-slate-100 hover:bg-slate-200">+</button>
                           {low && <span title="Stock bajo">⚠️</span>}
                         </div>
-                      ) : (
-                        <span className="text-slate-300">—</span>
-                      )}
+                      ) : <span className="text-slate-300">—</span>}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-right">
                       {cfg.kind !== 'ingredient' && (
-                        <button
-                          onClick={() => publishToSemu(it)}
-                          className="mr-2 text-slate-400 hover:text-teal-600"
-                          title="Publicar en Mercado Semu"
-                        >
-                          🏪
-                        </button>
+                        <button onClick={() => publishToSemu(it)} className="mr-2 text-slate-400 hover:text-teal-600" title="Publicar en Mercado Semu">🏪</button>
                       )}
                       <button onClick={() => setModal({ item: it })} className="mr-2 text-slate-400 hover:text-teal-600" title="Editar">✎</button>
                       <button onClick={() => remove(it.id)} className="text-slate-400 hover:text-red-600" title="Eliminar">🗑</button>

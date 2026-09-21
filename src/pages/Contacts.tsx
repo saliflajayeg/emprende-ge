@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, type Contact, type ContactType } from '../db/db'
+import { ldb, removeRow, type Contact, type ContactType } from '../cloud/localdb'
+import { useBusiness } from '../cloud/business'
 import { Button, Card, Modal, Field, Input, Textarea, EmptyState } from '../components/ui'
 
 function ContactForm({ existing, onDone }: { existing?: Contact; onDone: () => void }) {
@@ -15,7 +16,7 @@ function ContactForm({ existing, onDone }: { existing?: Contact; onDone: () => v
 
   async function save() {
     if (!form.name.trim()) return
-    const rec: Contact = {
+    const rec = {
       type: form.type as ContactType,
       name: form.name.trim(),
       phone: form.phone.trim(),
@@ -23,62 +24,45 @@ function ContactForm({ existing, onDone }: { existing?: Contact; onDone: () => v
       notes: form.notes.trim(),
       createdAt: existing?.createdAt ?? new Date().toISOString(),
     }
-    if (existing?.id) await db.contacts.put({ ...rec, id: existing.id })
-    else await db.contacts.add(rec)
+    if (existing?.id) await ldb.contacts.update(existing.id, rec)
+    else await ldb.contacts.add(rec as Contact)
     onDone()
   }
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1">
-        <button
-          onClick={() => set('type', 'client')}
-          className={`rounded-md py-2 text-sm font-semibold ${form.type === 'client' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}
-        >
-          Cliente
-        </button>
-        <button
-          onClick={() => set('type', 'provider')}
-          className={`rounded-md py-2 text-sm font-semibold ${form.type === 'provider' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-500'}`}
-        >
-          Proveedor
-        </button>
+        <button onClick={() => set('type', 'client')}
+          className={`rounded-md py-2 text-sm font-semibold ${form.type === 'client' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}>Cliente</button>
+        <button onClick={() => set('type', 'provider')}
+          className={`rounded-md py-2 text-sm font-semibold ${form.type === 'provider' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-500'}`}>Proveedor</button>
       </div>
-      <Field label="Nombre *">
-        <Input value={form.name} onChange={(e) => set('name', e.target.value)} autoFocus />
-      </Field>
+      <Field label="Nombre *"><Input value={form.name} onChange={(e) => set('name', e.target.value)} autoFocus /></Field>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Teléfono">
-          <Input value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="+240 …" />
-        </Field>
-        <Field label="Email">
-          <Input value={form.email} onChange={(e) => set('email', e.target.value)} />
-        </Field>
+        <Field label="Teléfono"><Input value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="+240 …" /></Field>
+        <Field label="Email"><Input value={form.email} onChange={(e) => set('email', e.target.value)} /></Field>
       </div>
-      <Field label="Notas">
-        <Textarea rows={2} value={form.notes} onChange={(e) => set('notes', e.target.value)} />
-      </Field>
+      <Field label="Notas"><Textarea rows={2} value={form.notes} onChange={(e) => set('notes', e.target.value)} /></Field>
       <div className="flex gap-2 pt-2">
         <Button variant="outline" onClick={onDone} className="flex-1">Cancelar</Button>
-        <Button onClick={save} className="flex-1" disabled={!form.name.trim()}>
-          {existing ? 'Guardar' : 'Añadir'}
-        </Button>
+        <Button onClick={save} className="flex-1" disabled={!form.name.trim()}>{existing ? 'Guardar' : 'Añadir'}</Button>
       </div>
     </div>
   )
 }
 
 export default function Contacts() {
-  const contacts = useLiveQuery(() => db.contacts.orderBy('name').toArray(), [])
+  const bid = useBusiness().current?.id ?? ''
+  const contacts = useLiveQuery(() => (bid ? ldb.contacts.where('businessId').equals(bid).toArray() : []), [bid])
   const [modal, setModal] = useState<null | { c?: Contact }>(null)
   const [tab, setTab] = useState<ContactType>('client')
 
   if (!contacts) return <div className="text-slate-400">Cargando…</div>
-  const list = contacts.filter((c) => c.type === tab)
+  const list = contacts.filter((c) => c.type === tab).sort((a, b) => a.name.localeCompare(b.name))
 
-  async function remove(id?: number) {
+  async function remove(id?: string) {
     if (!id) return
-    if (confirm('¿Eliminar este contacto?')) await db.contacts.delete(id)
+    if (confirm('¿Eliminar este contacto?')) await removeRow('contacts', id)
   }
 
   return (
@@ -89,16 +73,12 @@ export default function Contacts() {
       </div>
 
       <div className="inline-flex gap-1 rounded-lg bg-slate-100 p-1">
-        <button
-          onClick={() => setTab('client')}
-          className={`rounded-md px-4 py-1.5 text-sm font-medium ${tab === 'client' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}
-        >
+        <button onClick={() => setTab('client')}
+          className={`rounded-md px-4 py-1.5 text-sm font-medium ${tab === 'client' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}>
           Clientes ({contacts.filter((c) => c.type === 'client').length})
         </button>
-        <button
-          onClick={() => setTab('provider')}
-          className={`rounded-md px-4 py-1.5 text-sm font-medium ${tab === 'provider' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-500'}`}
-        >
+        <button onClick={() => setTab('provider')}
+          className={`rounded-md px-4 py-1.5 text-sm font-medium ${tab === 'provider' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-500'}`}>
           Proveedores ({contacts.filter((c) => c.type === 'provider').length})
         </button>
       </div>

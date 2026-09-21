@@ -1,8 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { supabase } from '../lib/supabase'
-import { keysToCamel } from './api'
+import { keysToCamel, keysToSnake } from './api'
 import { setLocalBusiness } from './localdb'
 import { startSync, stopSync } from './sync'
+import { setCurrency } from '../lib/format'
 import { useAuth } from './auth'
 
 export interface Business {
@@ -29,6 +30,7 @@ interface BusinessCtx {
   loading: boolean
   setCurrent: (id: string) => void
   reload: () => Promise<void>
+  updateBusiness: (patch: Record<string, any>) => Promise<void>
   createBusiness: (b: {
     name: string
     ownerName: string
@@ -39,7 +41,11 @@ interface BusinessCtx {
   }) => Promise<string>
 }
 
-const Ctx = createContext<BusinessCtx>(null as any)
+const Ctx = createContext<BusinessCtx>({
+  businesses: [], current: null, role: null, isAdmin: false, loading: true,
+  setCurrent: () => {}, reload: async () => {}, updateBusiness: async () => {},
+  createBusiness: async () => '',
+})
 const CURRENT_KEY = 'gemprende-current-business'
 
 export function BusinessProvider({ children }: { children: ReactNode }) {
@@ -104,9 +110,17 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
   const current = businesses.find((b) => b.id === currentId) ?? null
   const role = current ? roleByBiz[current.id] ?? null : null
 
-  // Al elegir/cambiar de negocio: fija el negocio local y arranca su sync.
+  const updateBusiness = async (patch: Record<string, any>) => {
+    if (!current) return
+    const { error } = await supabase.from('businesses').update(keysToSnake(patch)).eq('id', current.id)
+    if (error) throw error
+    setBusinesses((prev) => prev.map((b) => (b.id === current.id ? { ...b, ...patch } : b)))
+  }
+
+  // Al elegir/cambiar de negocio: fija moneda, negocio local y arranca su sync.
   useEffect(() => {
     const id = current?.id ?? null
+    if (current) setCurrency(current.currency)
     setLocalBusiness(id)
     if (id) startSync(id)
     else stopSync()
@@ -114,7 +128,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
   }, [current?.id])
 
   return (
-    <Ctx.Provider value={{ businesses, current, role, isAdmin, loading, setCurrent, reload, createBusiness }}>
+    <Ctx.Provider value={{ businesses, current, role, isAdmin, loading, setCurrent, reload, updateBusiness, createBusiness }}>
       {children}
     </Ctx.Provider>
   )

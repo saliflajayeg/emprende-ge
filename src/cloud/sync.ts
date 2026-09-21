@@ -17,7 +17,7 @@ function setStatus(s: SyncStatus) {
 export const getSyncStatus = () => status
 export function onSync(l: (s: SyncStatus) => void) {
   listeners.add(l)
-  return () => listeners.delete(l)
+  return () => { listeners.delete(l) }
 }
 
 function cloudPayload(row: Record<string, any>) {

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, type Transaction, type Kind } from '../db/db'
+import { ldb, removeRow, type Transaction, type Kind } from '../cloud/localdb'
+import { useBusiness } from '../cloud/business'
 import { money, formatDate } from '../lib/format'
 import { downloadCSV } from '../lib/csv'
 import { Button, Card, Modal, Badge, Select, Input, EmptyState } from '../components/ui'
@@ -17,21 +18,21 @@ export default function Transactions({
   pendingOnly?: boolean
   emptyHint?: string
 } = {}) {
-  const txs = useLiveQuery(() => db.transactions.orderBy('date').reverse().toArray(), [])
-  const categories = useLiveQuery(() => db.categories.toArray(), [])
-  const contacts = useLiveQuery(() => db.contacts.toArray(), [])
+  const bid = useBusiness().current?.id ?? ''
+  const txs = useLiveQuery(() => (bid ? ldb.transactions.where('businessId').equals(bid).toArray() : []), [bid])
+  const categories = useLiveQuery(() => (bid ? ldb.categories.where('businessId').equals(bid).toArray() : []), [bid])
+  const contacts = useLiveQuery(() => (bid ? ldb.contacts.where('businessId').equals(bid).toArray() : []), [bid])
 
   const [modal, setModal] = useState<null | { kind: Kind; tx?: Transaction }>(null)
   const [filterKind, setFilterKind] = useState<'all' | Kind>(lockKind ?? 'all')
   const [filterStatus, setFilterStatus] = useState<'all' | 'paid' | 'pending'>(pendingOnly ? 'pending' : 'all')
   const [query, setQuery] = useState('')
 
-  const catName = (id?: number) => categories?.find((c) => c.id === id)?.name ?? '—'
-  const contactName = (id?: number) => contacts?.find((c) => c.id === id)?.name ?? ''
+  const catName = (id?: string) => categories?.find((c) => c.id === id)?.name ?? '—'
+  const contactName = (id?: string) => contacts?.find((c) => c.id === id)?.name ?? ''
 
   const filtered = useMemo(() => {
-    if (!txs) return []
-    return txs.filter((t) => {
+    const list = (txs ?? []).filter((t) => {
       if (filterKind !== 'all' && t.kind !== filterKind) return false
       if (filterStatus !== 'all' && t.status !== filterStatus) return false
       if (query) {
@@ -40,33 +41,28 @@ export default function Transactions({
       }
       return true
     })
+    return list.sort((a, b) => (b.date + (b.createdAt ?? '')).localeCompare(a.date + (a.createdAt ?? '')))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [txs, filterKind, filterStatus, query, categories, contacts])
 
   const totalIn = filtered.filter((t) => t.kind === 'income').reduce((s, t) => s + t.amount, 0)
   const totalOut = filtered.filter((t) => t.kind === 'expense').reduce((s, t) => s + t.amount, 0)
 
-  async function remove(id?: number) {
+  async function remove(id?: string) {
     if (!id) return
-    if (confirm('¿Eliminar este registro? No se puede deshacer.')) await db.transactions.delete(id)
+    if (confirm('¿Eliminar este registro? No se puede deshacer.')) await removeRow('transactions', id)
   }
-
   async function togglePaid(t: Transaction) {
     if (!t.id) return
-    await db.transactions.update(t.id, { status: t.status === 'paid' ? 'pending' : 'paid' })
+    await ldb.transactions.update(t.id, { status: t.status === 'paid' ? 'pending' : 'paid' })
   }
 
   function exportCSV() {
     const rows: (string | number)[][] = [
       ['Fecha', 'Tipo', 'Categoría', 'Contacto', 'Descripción', 'Método', 'Estado', 'Importe'],
       ...filtered.map((t) => [
-        t.date,
-        t.kind === 'income' ? 'Ingreso' : 'Gasto',
-        catName(t.categoryId),
-        contactName(t.contactId),
-        t.description,
-        t.paymentMethod,
-        t.status === 'paid' ? 'Pagado' : 'Pendiente',
+        t.date, t.kind === 'income' ? 'Ingreso' : 'Gasto', catName(t.categoryId), contactName(t.contactId),
+        t.description, t.paymentMethod, t.status === 'paid' ? 'Pagado' : 'Pendiente',
         t.kind === 'income' ? t.amount : -t.amount,
       ]),
     ]
@@ -80,14 +76,11 @@ export default function Transactions({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-slate-800">{title}</h1>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={exportCSV}>
-            ⬇ Exportar CSV
-          </Button>
+          <Button variant="outline" onClick={exportCSV}>⬇ Exportar CSV</Button>
           <Button onClick={() => setModal({ kind: lockKind ?? 'income' })}>+ Nuevo</Button>
         </div>
       </div>
 
-      {/* Filtros */}
       <Card className="flex flex-wrap items-end gap-3">
         <div className="min-w-[140px] flex-1">
           <Input placeholder="Buscar…" value={query} onChange={(e) => setQuery(e.target.value)} />
@@ -112,7 +105,6 @@ export default function Transactions({
         )}
       </Card>
 
-      {/* Resumen filtro */}
       <div className="flex gap-4 text-sm">
         {lockKind !== 'expense' && <span className="text-teal-600">Ingresos: <b>{money(totalIn)}</b></span>}
         {lockKind !== 'income' && <span className="text-red-600">Gastos: <b>{money(totalOut)}</b></span>}
@@ -140,39 +132,18 @@ export default function Transactions({
                   <td className="whitespace-nowrap px-4 py-3 text-slate-500">{formatDate(t.date)}</td>
                   <td className="px-4 py-3">
                     <div className="font-medium text-slate-800">{t.description || catName(t.categoryId)}</div>
-                    {contactName(t.contactId) && (
-                      <div className="text-xs text-slate-400">{contactName(t.contactId)}</div>
-                    )}
+                    {contactName(t.contactId) && <div className="text-xs text-slate-400">{contactName(t.contactId)}</div>}
                   </td>
                   <td className="px-4 py-3 text-slate-500">{catName(t.categoryId)}</td>
                   <td className="px-4 py-3">
-                    <button onClick={() => togglePaid(t)} title="Cambiar estado">
-                      <Badge status={t.status} />
-                    </button>
+                    <button onClick={() => togglePaid(t)} title="Cambiar estado"><Badge status={t.status} /></button>
                   </td>
-                  <td
-                    className={`px-4 py-3 text-right font-semibold ${
-                      t.kind === 'income' ? 'text-teal-600' : 'text-red-600'
-                    }`}
-                  >
-                    {t.kind === 'income' ? '+' : '−'}
-                    {money(t.amount)}
+                  <td className={`px-4 py-3 text-right font-semibold ${t.kind === 'income' ? 'text-teal-600' : 'text-red-600'}`}>
+                    {t.kind === 'income' ? '+' : '−'}{money(t.amount)}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-right">
-                    <button
-                      onClick={() => setModal({ kind: t.kind, tx: t })}
-                      className="mr-2 text-slate-400 hover:text-teal-600"
-                      title="Editar"
-                    >
-                      ✎
-                    </button>
-                    <button
-                      onClick={() => remove(t.id)}
-                      className="text-slate-400 hover:text-red-600"
-                      title="Eliminar"
-                    >
-                      🗑
-                    </button>
+                    <button onClick={() => setModal({ kind: t.kind, tx: t })} className="mr-2 text-slate-400 hover:text-teal-600" title="Editar">✎</button>
+                    <button onClick={() => remove(t.id)} className="text-slate-400 hover:text-red-600" title="Eliminar">🗑</button>
                   </td>
                 </tr>
               ))}
@@ -181,11 +152,7 @@ export default function Transactions({
         </Card>
       )}
 
-      <Modal
-        open={modal !== null}
-        onClose={() => setModal(null)}
-        title={modal?.tx ? 'Editar movimiento' : 'Nuevo movimiento'}
-      >
+      <Modal open={modal !== null} onClose={() => setModal(null)} title={modal?.tx ? 'Editar movimiento' : 'Nuevo movimiento'}>
         {modal && <TxForm kind={modal.kind} existing={modal.tx} onDone={() => setModal(null)} />}
       </Modal>
     </div>
