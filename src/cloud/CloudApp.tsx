@@ -13,12 +13,18 @@ import Invoices from '../pages/Invoices'
 import Records from '../pages/Records'
 import Reports from '../pages/Reports'
 import AdminPanel from './AdminPanel'
-import { usePerms } from './perms'
 import { useBusiness } from './business'
 
+const Loader = () => <div className="grid place-items-center py-20 text-slate-400">Cargando…</div>
+
 export default function CloudApp() {
-  const { canSeeReports, canSeeSettings } = usePerms()
-  const { isAdmin } = useBusiness()
+  const { role, isAdmin, loading } = useBusiness()
+  // Rutas solo para el dueño: mientras el rol no se conozca (arranque), mostramos
+  // cargando en vez de redirigir; el empleado tiene rol 'employee' (no null).
+  const ownerOnly = (page: JSX.Element) =>
+    role === 'owner' ? page : role === 'employee' ? <Navigate to="/" replace /> : <Loader />
+  const adminOnly = (page: JSX.Element) =>
+    isAdmin ? page : loading ? <Loader /> : <Navigate to="/" replace />
   return (
     <CloudLayout>
       <Routes>
@@ -43,9 +49,9 @@ export default function CloudApp() {
         <Route path="/presupuestos" element={<Invoices mode="quotes" />} />
 
         <Route path="/fichas" element={<Records />} />
-        <Route path="/informes" element={canSeeReports ? <Reports /> : <Navigate to="/" replace />} />
-        <Route path="/ajustes" element={canSeeSettings ? <Settings /> : <Navigate to="/" replace />} />
-        <Route path="/admin" element={isAdmin ? <AdminPanel /> : <Navigate to="/" replace />} />
+        <Route path="/informes" element={ownerOnly(<Reports />)} />
+        <Route path="/ajustes" element={ownerOnly(<Settings />)} />
+        <Route path="/admin" element={adminOnly(<AdminPanel />)} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

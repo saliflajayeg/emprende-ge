@@ -1,10 +1,16 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ldb, removeRow, type Kind, type Category } from '../cloud/localdb'
 import { useBusiness } from '../cloud/business'
 import { useAuth } from '../cloud/auth'
+import { legacySummary, importLegacy, type LegacySummary } from '../cloud/importLegacy'
 import { BUSINESS_TYPES, MODULES, TOGGLEABLE, modulesFor, type ModuleId } from '../modules'
 import { Card, Button, Field, Input, Select } from '../components/ui'
+
+const TABLE_LABEL: Record<string, string> = {
+  transactions: 'movimientos', contacts: 'contactos', items: 'catálogo', invoices: 'facturas',
+  appointments: 'citas', jobs: 'trabajos', employees: 'empleados', records: 'fichas', recordEntries: 'seguimientos',
+}
 
 const PALETTE = ['#0d9488', '#0ea5e9', '#8b5cf6', '#ef4444', '#f97316', '#eab308', '#84cc16', '#ec4899', '#6366f1']
 
@@ -17,6 +23,12 @@ export default function Settings() {
   const [newCat, setNewCat] = useState<{ income: string; expense: string }>({ income: '', expense: '' })
   const [invite, setInvite] = useState<string | null>(null)
   const [inviteBusy, setInviteBusy] = useState(false)
+  const [legacy, setLegacy] = useState<LegacySummary | null>(null)
+  const [importBusy, setImportBusy] = useState(false)
+
+  useEffect(() => {
+    if (bid) legacySummary(bid).then(setLegacy).catch(() => setLegacy(null))
+  }, [bid])
 
   if (!current || !categories) return <div className="text-slate-400">Cargando…</div>
 
@@ -80,6 +92,21 @@ export default function Settings() {
     } catch (e) {
       flash('Error: ' + (e as Error).message)
     }
+  }
+
+  async function runImport() {
+    if (!bid) return
+    if (!confirm('Se copiarán tus datos anteriores de este dispositivo a este negocio en la nube. ¿Continuar?')) return
+    setImportBusy(true)
+    try {
+      const done = await importLegacy(bid)
+      const total = Object.values(done).reduce((s, n) => s + n, 0)
+      flash(`Importados ${total} registros ✓`)
+      setLegacy(await legacySummary(bid))
+    } catch (e) {
+      flash('Error: ' + (e as Error).message)
+    }
+    setImportBusy(false)
   }
 
   const employee = members.find((m) => m.role === 'employee')
@@ -242,6 +269,40 @@ export default function Settings() {
           </div>
         )}
       </Card>
+
+      {legacy?.found && (
+        <Card className="border-teal-200 bg-teal-50/40">
+          <h2 className="mb-1 font-semibold text-slate-800">📥 Importar datos anteriores</h2>
+          {legacy.imported ? (
+            <p className="text-sm text-slate-500">
+              Ya importaste los datos de este dispositivo a este negocio. Si necesitas volver a hacerlo,
+              recarga la página con conexión.
+            </p>
+          ) : (
+            <>
+              <p className="mb-2 text-sm text-slate-600">
+                Hemos encontrado datos de la versión anterior guardados en <b>este dispositivo</b>. Puedes
+                copiarlos a tu negocio en la nube (se suman a lo que ya tengas; no se borra nada).
+              </p>
+              <div className="mb-3 flex flex-wrap gap-2 text-xs">
+                {Object.entries(legacy.counts)
+                  .filter(([k, n]) => k !== 'categories' && n > 0)
+                  .map(([k, n]) => (
+                    <span key={k} className="rounded-full bg-white px-2 py-0.5 text-slate-600 ring-1 ring-slate-200">
+                      {n} {TABLE_LABEL[k] ?? k}
+                    </span>
+                  ))}
+              </div>
+              <Button onClick={runImport} disabled={importBusy}>
+                {importBusy ? 'Importando…' : '📥 Importar mis datos anteriores'}
+              </Button>
+              <p className="mt-2 text-xs text-slate-400">
+                Hazlo en el móvil donde usabas la app antes. Los datos antiguos no se borran de tu dispositivo.
+              </p>
+            </>
+          )}
+        </Card>
+      )}
 
       <Card>
         <h2 className="mb-1 font-semibold text-slate-800">☁️ Tus datos en la nube</h2>
