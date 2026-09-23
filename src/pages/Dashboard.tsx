@@ -4,13 +4,16 @@ import { ldb, type Kind } from '../cloud/localdb'
 import { useBusiness } from '../cloud/business'
 import { money, currentMonthKey, monthLabel, lastMonths } from '../lib/format'
 import { sumIn, monthlySeries, byCategory, pendingTotals } from '../lib/analytics'
+import { modulesFor, type ModuleId } from '../modules'
 import { StatCard, Card, Button, Modal, EmptyState } from '../components/ui'
 import { CashFlowChart, DonutChart } from '../components/charts'
 import TxForm from '../components/TxForm'
+import DayAgenda from '../components/DayAgenda'
 
 export default function Dashboard() {
   const { current } = useBusiness()
   const bid = current?.id ?? ''
+  const enabled = (current?.enabledModules as ModuleId[] | undefined) ?? modulesFor(current?.businessType)
   const txs = useLiveQuery(() => (bid ? ldb.transactions.where('businessId').equals(bid).toArray() : []), [bid])
   const categories = useLiveQuery(() => (bid ? ldb.categories.where('businessId').equals(bid).toArray() : []), [bid])
   const [modal, setModal] = useState<null | Kind>(null)
@@ -46,11 +49,16 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Ingresos del mes" value={money(incomeMonth)} tone="good" />
-        <StatCard label="Gastos del mes" value={money(expenseMonth)} tone="bad" />
-        <StatCard label="Beneficio neto" value={money(net)} tone={net >= 0 ? 'good' : 'bad'} />
-        <StatCard label="Margen" value={`${margin}%`} hint={net >= 0 ? 'Negocio positivo' : 'En pérdidas'} />
+      <DayAgenda bid={bid} enabled={enabled} recordsLabel={current?.recordsLabel} />
+
+      <div>
+        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">Resumen del mes · {monthLabel(month)}</h2>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatCard label="Ingresos del mes" value={money(incomeMonth)} tone="good" />
+          <StatCard label="Gastos del mes" value={money(expenseMonth)} tone="bad" />
+          <StatCard label="Beneficio neto" value={money(net)} tone={net >= 0 ? 'good' : 'bad'} />
+          <StatCard label="Margen" value={`${margin}%`} hint={net >= 0 ? 'Negocio positivo' : 'En pérdidas'} />
+        </div>
       </div>
 
       {alerts.length > 0 && (
