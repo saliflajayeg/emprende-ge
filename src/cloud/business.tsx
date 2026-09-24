@@ -19,6 +19,7 @@ export interface Business {
   address: string
   taxRate: number
   recordsLabel: string
+  logo?: string | null
   createdAt: string
 }
 

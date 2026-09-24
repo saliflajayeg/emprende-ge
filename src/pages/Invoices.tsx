@@ -5,6 +5,7 @@ import { useBusiness, type Business } from '../cloud/business'
 import { usePerms } from '../cloud/perms'
 import { money, formatDate, todayISO } from '../lib/format'
 import { invoicePDF, invoiceTotals, type PdfBusiness } from '../lib/pdf'
+import { shareInvoice } from '../lib/share'
 import { Button, Card, Modal, Field, Input, Textarea, Select, Badge, EmptyState } from '../components/ui'
 
 const pdfBiz = (b: Business): PdfBusiness => ({
@@ -13,6 +14,7 @@ const pdfBiz = (b: Business): PdfBusiness => ({
   address: b.address,
   phone: b.phone,
   currency: b.currency,
+  logo: b.logo,
 })
 
 const DOC_LABEL: Record<DocType, string> = { invoice: 'Factura', receipt: 'Recibo', quote: 'Presupuesto' }
@@ -73,7 +75,7 @@ function InvoiceForm({
     }
   }
 
-  async function save(andPdf: boolean) {
+  async function save(action: 'save' | 'pdf' | 'whatsapp') {
     const rec = {
       docType: form.docType,
       number: form.number,
@@ -89,7 +91,13 @@ function InvoiceForm({
     }
     if (existing?.id) await ldb.invoices.update(existing.id, rec)
     else await ldb.invoices.add(rec as Invoice)
-    if (andPdf && current) invoicePDF(rec as Invoice, pdfBiz(current))
+    if (current) {
+      if (action === 'pdf') invoicePDF(rec as Invoice, pdfBiz(current))
+      else if (action === 'whatsapp') {
+        const phone = contacts?.find((c) => c.id === form.contactId)?.phone
+        await shareInvoice(rec as Invoice, pdfBiz(current), phone)
+      }
+    }
     onDone()
   }
 
@@ -203,9 +211,12 @@ function InvoiceForm({
         </div>
       </div>
 
-      <div className="flex gap-2 pt-1">
-        <Button variant="outline" onClick={() => save(false)} className="flex-1">Guardar</Button>
-        <Button onClick={() => save(true)} className="flex-1">Guardar y descargar PDF</Button>
+      <div className="space-y-2 pt-1">
+        <Button onClick={() => save('whatsapp')} className="w-full !bg-[#25D366] hover:!bg-[#1ebe5b]">📲 Guardar y enviar por WhatsApp</Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => save('save')} className="flex-1">Guardar</Button>
+          <Button variant="outline" onClick={() => save('pdf')} className="flex-1">Guardar y descargar PDF</Button>
+        </div>
       </div>
     </div>
   )
@@ -223,7 +234,20 @@ export default function Invoices({
     () => (bid ? ldb.invoices.where('businessId').equals(bid).toArray().then((r) => r.sort((a, b) => b.date.localeCompare(a.date))) : []),
     [bid],
   )
+  const contacts = useLiveQuery(() => (bid ? ldb.contacts.where('businessId').equals(bid).toArray() : []), [bid])
   const [modal, setModal] = useState<null | { inv?: Invoice }>(null)
+  const [sharing, setSharing] = useState<string | null>(null)
+
+  const clientPhone = (inv: Invoice) => contacts?.find((c) => c.id === inv.contactId)?.phone
+
+  async function sendWhatsApp(inv: Invoice) {
+    if (!current) return
+    setSharing(inv.id)
+    try {
+      await shareInvoice(inv, pdfBiz(current), clientPhone(inv))
+    } catch { /* cancelado o no soportado */ }
+    setSharing(null)
+  }
 
   const isQuotes = mode === 'quotes'
   const allowedTypes: DocType[] = isQuotes ? ['quote'] : ['invoice', 'receipt']
@@ -267,7 +291,14 @@ export default function Invoices({
                   <Badge status={inv.status} />
                 </div>
                 <div className="mt-3 text-xl font-bold text-teal-700">{money(total)}</div>
-                <div className="mt-3 flex gap-2">
+                <Button
+                  className="mt-3 w-full !bg-[#25D366] hover:!bg-[#1ebe5b]"
+                  onClick={() => sendWhatsApp(inv)}
+                  disabled={sharing === inv.id}
+                >
+                  {sharing === inv.id ? 'Preparando…' : '📲 Enviar por WhatsApp'}
+                </Button>
+                <div className="mt-2 flex gap-2">
                   <Button
                     variant="outline"
                     className="flex-1"

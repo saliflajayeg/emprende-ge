@@ -10,6 +10,7 @@ export interface PdfBusiness {
   address?: string
   phone?: string
   currency: string
+  logo?: string | null // dataURL del logo del negocio (opcional)
 }
 
 // Totales de una factura/presupuesto.
@@ -27,18 +28,33 @@ function header(doc: jsPDF, s: PdfBusiness, title: string) {
   doc.setFillColor(...TEAL)
   doc.rect(0, 0, 210, 4, 'F')
 
+  // Logo del negocio (si hay), arriba a la izquierda
+  let textX = 14
+  if (s.logo) {
+    try {
+      const props = doc.getImageProperties(s.logo)
+      const maxH = 18
+      const maxW = 32
+      let w = maxW
+      let h = (props.height / props.width) * w
+      if (h > maxH) { h = maxH; w = (props.width / props.height) * h }
+      doc.addImage(s.logo, 'PNG', 14, 10, w, h)
+      textX = 14 + w + 4
+    } catch { /* logo no embebible: se ignora */ }
+  }
+
   doc.setTextColor(...DARK)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(18)
-  doc.text(s.businessName || 'Mi Negocio', 14, 20)
+  doc.text(s.businessName || 'Mi Negocio', textX, 20)
 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
   doc.setTextColor(...GRAY)
   let y = 26
-  if (s.sector) { doc.text(s.sector, 14, y); y += 4 }
-  if (s.address) { doc.text(s.address, 14, y); y += 4 }
-  if (s.phone) { doc.text(`Tel: ${s.phone}`, 14, y); y += 4 }
+  if (s.sector) { doc.text(s.sector, textX, y); y += 4 }
+  if (s.address) { doc.text(s.address, textX, y); y += 4 }
+  if (s.phone) { doc.text(`Tel: ${s.phone}`, textX, y); y += 4 }
 
   doc.setTextColor(...TEAL)
   doc.setFont('helvetica', 'bold')
@@ -46,7 +62,7 @@ function header(doc: jsPDF, s: PdfBusiness, title: string) {
   doc.text(title, 196, 20, { align: 'right' })
 }
 
-export function invoicePDF(inv: Invoice, s: PdfBusiness) {
+function buildInvoiceDoc(inv: Invoice, s: PdfBusiness): { doc: jsPDF; filename: string } {
   const doc = new jsPDF()
   const TITLES: Record<string, string> = { invoice: 'FACTURA', receipt: 'RECIBO', quote: 'PRESUPUESTO' }
   const title = TITLES[inv.docType] ?? 'FACTURA'
@@ -137,7 +153,20 @@ export function invoicePDF(inv: Invoice, s: PdfBusiness) {
     { align: 'center' },
   )
 
-  doc.save(`${title}-${inv.number}.pdf`)
+  return { doc, filename: `${title}-${inv.number}.pdf` }
+}
+
+// Descarga la factura como PDF.
+export function invoicePDF(inv: Invoice, s: PdfBusiness) {
+  const { doc, filename } = buildInvoiceDoc(inv, s)
+  doc.save(filename)
+}
+
+// Devuelve la factura como archivo PDF (para compartir por WhatsApp, etc.).
+export function invoicePDFFile(inv: Invoice, s: PdfBusiness): File {
+  const { doc, filename } = buildInvoiceDoc(inv, s)
+  const blob = doc.output('blob')
+  return new File([blob], filename, { type: 'application/pdf' })
 }
 
 interface ReportData {

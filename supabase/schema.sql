@@ -36,8 +36,12 @@ create table businesses (
   address text default '',
   tax_rate numeric default 15,
   records_label text default 'Fichas',
+  logo text,
   created_at timestamptz default now()
 );
+
+-- Para bases ya creadas antes de añadir el logo:
+alter table businesses add column if not exists logo text;
 
 -- Un usuario puede pertenecer a VARIOS negocios; máx. 2 personas por negocio.
 create table members (

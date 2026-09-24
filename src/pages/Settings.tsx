@@ -4,6 +4,7 @@ import { ldb, removeRow, type Kind, type Category } from '../cloud/localdb'
 import { useBusiness } from '../cloud/business'
 import { useAuth } from '../cloud/auth'
 import { legacySummary, importLegacy, type LegacySummary } from '../cloud/importLegacy'
+import { fileToDataURL } from '../lib/image'
 import { BUSINESS_TYPES, MODULES, TOGGLEABLE, modulesFor, type ModuleId } from '../modules'
 import { Card, Button, Field, Input, Select } from '../components/ui'
 
@@ -37,9 +38,20 @@ export default function Settings() {
     setTimeout(() => setMsg(''), 2500)
   }
 
-  async function saveBiz(patch: Record<string, string | number | string[]>) {
+  async function saveBiz(patch: Record<string, any>) {
     await updateBusiness(patch)
     flash('Guardado ✓')
+  }
+
+  async function onLogo(file?: File) {
+    if (!file) return
+    try {
+      const dataUrl = await fileToDataURL(file, 256, 0.9, 'image/png')
+      await updateBusiness({ logo: dataUrl })
+      flash('Logo actualizado ✓')
+    } catch (e) {
+      flash('Error: ' + (e as Error).message)
+    }
   }
 
   const enabled = (current.enabledModules as ModuleId[] | undefined) ?? modulesFor(current.businessType)
@@ -147,6 +159,26 @@ export default function Settings() {
 
       <Card>
         <h2 className="mb-4 font-semibold text-slate-800">Datos del negocio</h2>
+
+        <div className="mb-4 flex items-center gap-4">
+          <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 text-2xl text-slate-300">
+            {current.logo ? <img src={current.logo} alt="Logo" className="h-full w-full object-contain" /> : '🏢'}
+          </div>
+          <div className="space-y-1">
+            <div className="text-sm font-medium text-slate-700">Logo del negocio</div>
+            <p className="text-xs text-slate-400">Aparecerá en tus facturas y recibos. PNG o JPG.</p>
+            <div className="flex gap-2 pt-1">
+              <label className="inline-block cursor-pointer rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                {current.logo ? 'Cambiar logo' : '📷 Subir logo'}
+                <input type="file" accept="image/*" className="hidden" onChange={(e) => onLogo(e.target.files?.[0] || undefined)} />
+              </label>
+              {current.logo && (
+                <button onClick={() => saveBiz({ logo: null })} className="text-sm text-red-500 hover:underline">Quitar</button>
+              )}
+            </div>
+          </div>
+        </div>
+
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Nombre del negocio">
             <Input defaultValue={current.name} onBlur={(e) => saveBiz({ name: e.target.value })} />
