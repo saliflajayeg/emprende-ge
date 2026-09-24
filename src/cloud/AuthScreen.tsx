@@ -10,28 +10,51 @@ const BENEFITS = [
   { icon: '👥', text: 'Compártelo con un empleado, en cualquier móvil' },
 ]
 
+// Normaliza un número de GE a dígitos, quitando prefijo +240 y ceros iniciales,
+// para que el mismo número (escrito de varias formas) dé siempre el mismo id.
+function normPhone(raw: string): string {
+  let d = raw.replace(/\D/g, '')
+  if (d.startsWith('240')) d = d.slice(3)
+  d = d.replace(/^0+/, '')
+  return d
+}
+// El teléfono se usa como identificador con un correo sintético (sin SMS).
+const phoneToEmail = (raw: string) => `${normPhone(raw)}@telefono.gemprende.app`
+
 export default function AuthScreen() {
   const [mode, setMode] = useState<'login' | 'register'>('login')
+  const [idType, setIdType] = useState<'email' | 'phone'>('phone')
   const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
   async function submit() {
     setError('')
-    if (!email.trim() || password.length < 6) {
-      setError('Introduce un email y una contraseña de al menos 6 caracteres.')
+    const isPhone = idType === 'phone'
+    const identifier = isPhone ? phoneToEmail(phone) : email.trim()
+    if (isPhone && normPhone(phone).length < 6) {
+      setError('Introduce un número de teléfono válido.')
+      return
+    }
+    if (!isPhone && !email.trim()) {
+      setError('Introduce tu correo electrónico.')
+      return
+    }
+    if (password.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres.')
       return
     }
     setBusy(true)
     try {
-      if (mode === 'register') await signUp(email.trim(), password)
-      else await signIn(email.trim(), password)
+      if (mode === 'register') await signUp(identifier, password)
+      else await signIn(identifier, password)
       // La sesión se detecta automáticamente (AuthProvider)
     } catch (e) {
       const msg = (e as Error).message || ''
-      if (/invalid login/i.test(msg)) setError('Email o contraseña incorrectos.')
-      else if (/already registered/i.test(msg)) setError('Ese email ya tiene cuenta. Inicia sesión.')
+      if (/invalid login/i.test(msg)) setError(isPhone ? 'Teléfono o contraseña incorrectos.' : 'Correo o contraseña incorrectos.')
+      else if (/already registered/i.test(msg)) setError(isPhone ? 'Ese teléfono ya tiene cuenta. Inicia sesión.' : 'Ese correo ya tiene cuenta. Inicia sesión.')
       else setError(msg)
     }
     setBusy(false)
@@ -101,15 +124,44 @@ export default function AuthScreen() {
             </div>
 
             <div className="space-y-4">
-              <Field label="Email">
-                <Input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="tucorreo@ejemplo.com"
-                  autoComplete="email"
-                />
-              </Field>
+              <div className="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1">
+                <button
+                  onClick={() => setIdType('phone')}
+                  className={`rounded-md py-1.5 text-sm font-semibold ${idType === 'phone' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}
+                >
+                  📱 Teléfono
+                </button>
+                <button
+                  onClick={() => setIdType('email')}
+                  className={`rounded-md py-1.5 text-sm font-semibold ${idType === 'email' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}
+                >
+                  ✉️ Correo
+                </button>
+              </div>
+
+              {idType === 'phone' ? (
+                <Field label="Número de teléfono">
+                  <Input
+                    type="tel"
+                    inputMode="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="Ej. 222 111 333"
+                    autoComplete="tel"
+                  />
+                  <p className="mt-1 text-xs text-slate-400">Sin SMS. Usa el mismo número y contraseña para volver a entrar.</p>
+                </Field>
+              ) : (
+                <Field label="Correo electrónico">
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="tucorreo@ejemplo.com"
+                    autoComplete="email"
+                  />
+                </Field>
+              )}
               <Field label="Contraseña">
                 <Input
                   type="password"
