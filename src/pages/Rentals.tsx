@@ -1,19 +1,48 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ldb, removeRow, type Unit, type UnitType, type UnitStatus, type Transaction, type Category } from '../cloud/localdb'
+import { ldb, removeRow, type Unit, type UnitType, type UnitStatus, type RentFreq, type Transaction, type Category } from '../cloud/localdb'
 import { useBusiness } from '../cloud/business'
 import { usePerms } from '../cloud/perms'
 import { money, formatDate, todayISO, currentMonthKey, monthLabel } from '../lib/format'
-import { Button, Card, Modal, Field, Input, Select, Textarea, StatCard, EmptyState } from '../components/ui'
+import { Button, Card, Modal, Field, Input, Select, Textarea, EmptyState } from '../components/ui'
 
 const TYPE_LABEL: Record<UnitType, string> = { apartment: 'Apartamento', room: 'Habitación', commercial: 'Local', other: 'Otro' }
 const TYPE_ICON: Record<UnitType, string> = { apartment: '🏢', room: '🛏️', commercial: '🏬', other: '🏠' }
+
+const FREQ_LABEL: Record<RentFreq, string> = { monthly: 'Mensual', bimonthly: 'Bimensual', quarterly: 'Trimestral', semiannual: 'Semestral', annual: 'Anual' }
+const FREQ_UNIT: Record<RentFreq, string> = { monthly: 'mes', bimonthly: 'bimestre', quarterly: 'trimestre', semiannual: 'semestre', annual: 'año' }
 
 // Desplaza un mes 'YYYY-MM' n meses (aritmética en UTC)
 function shiftMonth(period: string, n: number): string {
   const [y, m] = period.split('-').map(Number)
   const d = new Date(Date.UTC(y, m - 1 + n, 1))
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+}
+
+// Clave del periodo de facturación de una unidad para el mes de referencia 'ym',
+// según su frecuencia. Un trimestral comparte clave en sus 3 meses.
+function periodKey(freq: RentFreq, ym: string): string {
+  const [y, m] = ym.split('-').map(Number)
+  switch (freq) {
+    case 'bimonthly': return `${y}-B${Math.ceil(m / 2)}`
+    case 'quarterly': return `${y}-Q${Math.ceil(m / 3)}`
+    case 'semiannual': return `${y}-S${m <= 6 ? 1 : 2}`
+    case 'annual': return `${y}`
+    default: return `${y}-${String(m).padStart(2, '0')}`
+  }
+}
+
+const ORD = ['', '1.º', '2.º', '3.er', '4.º', '5.º', '6.º']
+
+// Etiqueta legible de una clave de periodo (para el historial y las tarjetas).
+function labelPeriodKey(key: string): string {
+  let mt
+  if ((mt = key.match(/^(\d{4})-(\d{2})$/))) return monthLabel(key)
+  if ((mt = key.match(/^(\d{4})-B(\d)$/))) return `${ORD[+mt[2]]} bimestre ${mt[1]}`
+  if ((mt = key.match(/^(\d{4})-Q(\d)$/))) return `${ORD[+mt[2]]} trimestre ${mt[1]}`
+  if ((mt = key.match(/^(\d{4})-S(\d)$/))) return `${ORD[+mt[2]]} semestre ${mt[1]}`
+  if ((mt = key.match(/^(\d{4})$/))) return `Año ${mt[1]}`
+  return key
 }
 
 // Nombre del mes en un idioma concreto (para el recordatorio multilingüe)
@@ -31,6 +60,7 @@ function UnitForm({ existing, onDone }: { existing?: Unit; onDone: () => void })
     tenantPhone: existing?.tenantPhone ?? '',
     deposit: existing?.deposit ? String(existing.deposit) : '',
     status: (existing?.status ?? 'occupied') as UnitStatus,
+    frequency: (existing?.frequency ?? 'monthly') as RentFreq,
     notes: existing?.notes ?? '',
   })
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }))
@@ -45,6 +75,7 @@ function UnitForm({ existing, onDone }: { existing?: Unit; onDone: () => void })
       tenantPhone: form.tenantPhone.trim(),
       deposit: form.deposit ? Number(form.deposit) : undefined,
       status: form.status,
+      frequency: form.frequency,
       notes: form.notes.trim(),
       createdAt: existing?.createdAt ?? new Date().toISOString(),
     }
@@ -67,14 +98,23 @@ function UnitForm({ existing, onDone }: { existing?: Unit; onDone: () => void })
         </Field>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Renta mensual"><Input type="number" value={form.rent} onChange={(e) => set('rent', e.target.value)} placeholder="0" /></Field>
-        <Field label="Estado">
-          <Select value={form.status} onChange={(e) => set('status', e.target.value)}>
-            <option value="occupied">Ocupado</option>
-            <option value="vacant">Vacío</option>
+        <Field label={`Renta por ${FREQ_UNIT[form.frequency]}`}><Input type="number" value={form.rent} onChange={(e) => set('rent', e.target.value)} placeholder="0" /></Field>
+        <Field label="Frecuencia de pago">
+          <Select value={form.frequency} onChange={(e) => set('frequency', e.target.value)}>
+            <option value="monthly">Mensual</option>
+            <option value="bimonthly">Bimensual (cada 2 meses)</option>
+            <option value="quarterly">Trimestral (cada 3 meses)</option>
+            <option value="semiannual">Semestral (cada 6 meses)</option>
+            <option value="annual">Anual</option>
           </Select>
         </Field>
       </div>
+      <Field label="Estado">
+        <Select value={form.status} onChange={(e) => set('status', e.target.value)}>
+          <option value="occupied">Ocupado</option>
+          <option value="vacant">Vacío</option>
+        </Select>
+      </Field>
       <Field label="Inquilino"><Input value={form.tenantName} onChange={(e) => set('tenantName', e.target.value)} placeholder="Nombre del inquilino" /></Field>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Teléfono del inquilino"><Input value={form.tenantPhone} onChange={(e) => set('tenantPhone', e.target.value)} placeholder="+240 …" /></Field>
@@ -112,7 +152,7 @@ function History({ unit, onClose }: { unit: Unit; onClose: () => void }) {
           {list.map((p) => (
             <li key={p.id} className="flex items-center justify-between py-2 text-sm">
               <div>
-                <div className="font-medium text-slate-800">{p.period ? monthLabel(p.period) : '—'}</div>
+                <div className="font-medium text-slate-800">{p.period ? labelPeriodKey(p.period) : '—'}</div>
                 <div className="text-xs text-slate-400">Pagado el {formatDate(p.date)}</div>
               </div>
               <div className="flex items-center gap-2">
@@ -144,11 +184,13 @@ export default function Rentals() {
   if (!units || !txs) return <div className="text-slate-400">Cargando…</div>
 
   const sorted = [...units].sort((a, b) => (a.status === b.status ? a.name.localeCompare(b.name) : a.status === 'occupied' ? -1 : 1))
-  const paymentFor = (unitId: string, per: string) => txs.find((t) => t.unitId === unitId && t.period === per)
+  // El periodo de cada unidad depende de su frecuencia y del mes de referencia.
+  const unitPeriod = (u: Unit) => periodKey(u.frequency ?? 'monthly', period)
+  const paymentFor = (u: Unit) => txs.find((t) => t.unitId === u.id && t.period === unitPeriod(u))
 
   const occupied = units.filter((u) => u.status === 'occupied')
   const expected = occupied.reduce((s, u) => s + (u.rent || 0), 0)
-  const collected = occupied.reduce((s, u) => s + (paymentFor(u.id, period) ? paymentFor(u.id, period)!.amount : 0), 0)
+  const collected = occupied.reduce((s, u) => { const p = paymentFor(u); return s + (p ? p.amount : 0) }, 0)
   const pending = Math.max(0, expected - collected)
 
   async function ensureRentCategory(): Promise<string | undefined> {
@@ -166,7 +208,7 @@ export default function Rentals() {
       description: `Renta · ${unit.name}${unit.tenantName ? ` (${unit.tenantName})` : ''}`,
       categoryId: catId,
       unitId: unit.id,
-      period,
+      period: unitPeriod(unit),
       status: 'paid',
       paymentMethod: 'Efectivo',
       createdAt: new Date().toISOString(),
@@ -174,7 +216,7 @@ export default function Rentals() {
   }
 
   async function unmark(unit: Unit) {
-    const pay = paymentFor(unit.id, period)
+    const pay = paymentFor(unit)
     if (pay) await removeRow('transactions', pay.id)
   }
 
@@ -183,7 +225,8 @@ export default function Rentals() {
     const rent = money(unit.rent)
     const name = unit.tenantName || ''
     const biz = current?.name || ''
-    const es = monthIn(period, 'es-ES'), fr = monthIn(period, 'fr-FR'), en = monthIn(period, 'en-US')
+    const perLabel = (locale: string) => (!unit.frequency || unit.frequency === 'monthly' ? monthIn(period, locale) : labelPeriodKey(unitPeriod(unit)))
+    const es = perLabel('es-ES'), fr = perLabel('fr-FR'), en = perLabel('en-US')
     const msg =
       `Hola ${name}, le recordamos amablemente el pago del alquiler de "${unit.name}" correspondiente a ${es}: ${rent}. Gracias.\n\n` +
       `Bonjour ${name}, nous vous rappelons aimablement le paiement du loyer de « ${unit.name} » pour ${fr} : ${rent}. Merci.\n\n` +
@@ -217,19 +260,30 @@ export default function Rentals() {
         <button onClick={() => setPeriod(shiftMonth(period, 1))} className="grid h-8 w-8 place-items-center rounded-lg text-slate-500 hover:bg-slate-100">›</button>
       </Card>
 
-      <div className="grid grid-cols-3 gap-3">
-        <StatCard label="Cobrado" value={money(collected)} tone="good" />
-        <StatCard label="Pendiente" value={money(pending)} tone={pending > 0 ? 'bad' : 'good'} />
-        <StatCard label="Esperado" value={money(expected)} />
-      </div>
+      <Card className="grid grid-cols-3 gap-2 text-center">
+        <div className="min-w-0">
+          <div className="truncate text-xs uppercase tracking-wide text-slate-400">Cobrado</div>
+          <div className="break-words text-sm font-bold leading-tight text-teal-600 sm:text-lg">{money(collected)}</div>
+        </div>
+        <div className="min-w-0 border-x border-slate-100">
+          <div className="truncate text-xs uppercase tracking-wide text-slate-400">Pendiente</div>
+          <div className={`break-words text-sm font-bold leading-tight sm:text-lg ${pending > 0 ? 'text-red-600' : 'text-teal-600'}`}>{money(pending)}</div>
+        </div>
+        <div className="min-w-0">
+          <div className="truncate text-xs uppercase tracking-wide text-slate-400">Esperado</div>
+          <div className="break-words text-sm font-bold leading-tight text-slate-700 sm:text-lg">{money(expected)}</div>
+        </div>
+      </Card>
+      <p className="-mt-2 text-xs text-slate-400">Se muestra el pago que corresponde a cada unidad según su frecuencia en {monthLabel(period)}.</p>
 
       {units.length === 0 ? (
         <EmptyState title="Sin unidades" hint="Añade tu primer apartamento, habitación o local." />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {sorted.map((u) => {
-            const pay = paymentFor(u.id, period)
+            const pay = paymentFor(u)
             const vacant = u.status === 'vacant'
+            const freq = u.frequency ?? 'monthly'
             return (
               <Card key={u.id}>
                 <div className="flex items-start justify-between">
@@ -244,7 +298,8 @@ export default function Rentals() {
                   </div>
                 </div>
 
-                <div className="mt-2 text-lg font-bold text-slate-700">{money(u.rent)}<span className="text-xs font-normal text-slate-400"> / mes</span></div>
+                <div className="mt-2 text-lg font-bold text-slate-700">{money(u.rent)}<span className="text-xs font-normal text-slate-400"> / {FREQ_UNIT[freq]}</span></div>
+                {!vacant && <div className="text-xs text-slate-400">{FREQ_LABEL[freq]} · {labelPeriodKey(unitPeriod(u))}</div>}
 
                 {vacant ? (
                   <div className="mt-3 rounded-lg bg-slate-50 py-2 text-center text-sm text-slate-400">Sin inquilino</div>
@@ -255,7 +310,7 @@ export default function Rentals() {
                   </div>
                 ) : (
                   <div className="mt-3 flex gap-2">
-                    <Button onClick={() => markPaid(u)} className="flex-1">Marcar pagado ({monthLabel(period).split(' ')[0]})</Button>
+                    <Button onClick={() => markPaid(u)} className="flex-1">Marcar pagado</Button>
                     {u.tenantPhone && (
                       <button
                         onClick={() => remind(u)}

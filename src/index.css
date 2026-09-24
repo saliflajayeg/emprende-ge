@@ -16,6 +16,12 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Evita el desplazamiento/movimiento horizontal en móvil */
+html, body {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
 /* Utilidad: ocultar en impresión y al exportar */
 @media print {
   .no-print { display: none !important; }

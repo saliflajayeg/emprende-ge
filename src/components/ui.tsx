@@ -23,8 +23,8 @@ export function StatCard({
     tone === 'good' ? 'text-teal-600' : tone === 'bad' ? 'text-red-600' : 'text-slate-900'
   return (
     <Card>
-      <div className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</div>
-      <div className={`mt-1 text-2xl font-bold ${toneClass}`}>{value}</div>
+      <div className="truncate text-xs font-medium uppercase tracking-wide text-slate-500">{label}</div>
+      <div className={`mt-1 break-words text-xl font-bold leading-tight sm:text-2xl ${toneClass}`}>{value}</div>
       {hint && <div className="mt-1 text-xs text-slate-400">{hint}</div>}
     </Card>
   )

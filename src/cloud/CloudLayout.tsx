@@ -86,7 +86,7 @@ export default function CloudLayout({ children }: { children: ReactNode }) {
   )
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen w-full overflow-x-hidden">
       <aside className="hidden w-64 shrink-0 flex-col border-r border-slate-200 bg-white p-4 md:flex">
         <button onClick={() => navigate('/')} className="mb-4 flex items-center gap-2 text-left">
           <img src={brandLogo} alt={brandName} className={`h-9 w-9 shrink-0 rounded-lg ${logoFit}`} />
@@ -100,19 +100,15 @@ export default function CloudLayout({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 md:hidden">
-          <div className="flex min-w-0 items-center gap-2">
-            <img src={brandLogo} alt={brandName} className={`h-8 w-8 shrink-0 rounded-lg ${logoFit}`} />
-            <span className="min-w-0 truncate font-bold text-slate-800">{brandName}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <SyncBadge />
-            <button onClick={() => setOpen(true)} className="rounded-lg p-2 hover:bg-slate-100" aria-label="Menú">☰</button>
-          </div>
+      <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden">
+        <header className="flex items-center gap-2 border-b border-slate-200 bg-white px-3 py-3 md:hidden">
+          <button onClick={() => setOpen(true)} className="shrink-0 rounded-lg p-2 text-lg hover:bg-slate-100" aria-label="Menú">☰</button>
+          <img src={brandLogo} alt={brandName} className={`h-8 w-8 shrink-0 rounded-lg ${logoFit}`} />
+          <span className="min-w-0 flex-1 truncate font-bold text-slate-800">{brandName}</span>
+          <SyncBadge />
         </header>
 
-        <main className="flex-1 p-4 sm:p-6">{children}</main>
+        <main className="min-w-0 flex-1 p-4 sm:p-6">{children}</main>
 
         <footer className="border-t border-slate-200 bg-white px-4 py-6">
           <div className="mx-auto flex max-w-md flex-col items-center gap-2 text-center">

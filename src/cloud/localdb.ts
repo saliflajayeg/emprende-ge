@@ -17,6 +17,7 @@ export type ApptStatus = 'pending' | 'done' | 'cancelled'
 export type JobStatus = 'pending' | 'in_progress' | 'done'
 export type UnitType = 'apartment' | 'room' | 'commercial' | 'other'
 export type UnitStatus = 'occupied' | 'vacant'
+export type RentFreq = 'monthly' | 'bimonthly' | 'quarterly' | 'semiannual' | 'annual'
 
 interface Base {
   id: string
@@ -34,7 +35,7 @@ export interface Transaction extends Base {
 // Unidad de alquiler (apartamento, habitación, local…) con su inquilino y renta
 export interface Unit extends Base {
   name: string; type: UnitType; rent: number; tenantName: string; tenantPhone: string
-  deposit?: number; status: UnitStatus; notes: string; createdAt: string
+  deposit?: number; status: UnitStatus; frequency: RentFreq; notes: string; createdAt: string
 }
 export interface InvoiceItem { description: string; qty: number; price: number }
 export interface Invoice extends Base {

@@ -13,7 +13,10 @@ create table if not exists units (
   notes text default '', created_at timestamptz default now()
 );
 
--- Los pagos de alquiler = transacciones (ingresos) etiquetadas con unidad y mes
+-- Frecuencia de pago de la unidad (mensual, bimensual, trimestral, semestral, anual)
+alter table units add column if not exists frequency text default 'monthly';
+
+-- Los pagos de alquiler = transacciones (ingresos) etiquetadas con unidad y periodo
 alter table transactions add column if not exists unit_id uuid references units(id) on delete set null;
 alter table transactions add column if not exists period text;
 

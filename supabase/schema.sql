@@ -160,7 +160,7 @@ create table units (
   business_id uuid not null references businesses(id) on delete cascade,
   name text not null default '', type text default 'apartment',
   rent numeric default 0, tenant_name text default '', tenant_phone text default '',
-  deposit numeric, status text not null default 'occupied',
+  deposit numeric, status text not null default 'occupied', frequency text default 'monthly',
   notes text default '', created_at timestamptz default now()
 );
 
