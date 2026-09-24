@@ -15,6 +15,8 @@ export type DocType = 'invoice' | 'receipt' | 'quote'
 export type ItemKind = 'service' | 'product' | 'ingredient'
 export type ApptStatus = 'pending' | 'done' | 'cancelled'
 export type JobStatus = 'pending' | 'in_progress' | 'done'
+export type UnitType = 'apartment' | 'room' | 'commercial' | 'other'
+export type UnitStatus = 'occupied' | 'vacant'
 
 interface Base {
   id: string
@@ -27,6 +29,12 @@ export interface Contact extends Base { type: ContactType; name: string; phone: 
 export interface Transaction extends Base {
   kind: Kind; date: string; categoryId?: string; contactId?: string; description: string
   amount: number; paymentMethod: string; status: TxStatus; dueDate?: string; createdAt: string
+  unitId?: string; period?: string // alquileres: unidad y mes (YYYY-MM) al que corresponde el pago
+}
+// Unidad de alquiler (apartamento, habitación, local…) con su inquilino y renta
+export interface Unit extends Base {
+  name: string; type: UnitType; rent: number; tenantName: string; tenantPhone: string
+  deposit?: number; status: UnitStatus; notes: string; createdAt: string
 }
 export interface InvoiceItem { description: string; qty: number; price: number }
 export interface Invoice extends Base {
@@ -57,7 +65,7 @@ export interface SyncState { id: string; lastPulledAt: string }
 
 // Nombres de las tablas de datos que se sincronizan (orden = respeta dependencias)
 export const SYNC_TABLES = [
-  'categories', 'contacts', 'items', 'employees',
+  'categories', 'contacts', 'items', 'employees', 'units',
   'transactions', 'invoices', 'appointments', 'jobs', 'records', 'recordEntries',
 ] as const
 export type SyncTable = (typeof SYNC_TABLES)[number]
@@ -65,7 +73,7 @@ export type SyncTable = (typeof SYNC_TABLES)[number]
 // Columna que referencia el registro padre en la nube (snake_case en Supabase)
 export const CLOUD_TABLE: Record<SyncTable, string> = {
   categories: 'categories', contacts: 'contacts', items: 'items', employees: 'employees',
-  transactions: 'transactions', invoices: 'invoices', appointments: 'appointments',
+  units: 'units', transactions: 'transactions', invoices: 'invoices', appointments: 'appointments',
   jobs: 'jobs', records: 'records', recordEntries: 'record_entries',
 }
 
@@ -80,6 +88,7 @@ class LocalDB extends Dexie {
   employees!: Table<Employee, string>
   records!: Table<RecordCard, string>
   recordEntries!: Table<RecordEntry, string>
+  units!: Table<Unit, string>
   pendingDeletes!: Table<PendingDelete, string>
   syncState!: Table<SyncState, string>
 
@@ -98,6 +107,10 @@ class LocalDB extends Dexie {
       recordEntries: 'id, businessId, recordId, date, dirty',
       pendingDeletes: 'id, table, businessId',
       syncState: 'id',
+    })
+    // v2: módulo de Alquileres (unidades: apartamentos, habitaciones, locales)
+    this.version(2).stores({
+      units: 'id, businessId, status, dirty',
     })
   }
 }

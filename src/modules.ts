@@ -20,6 +20,7 @@ export type ModuleId =
   | 'jobs'
   | 'employees'
   | 'records'
+  | 'rentals'
   | 'reports'
   | 'settings'
 
@@ -48,6 +49,7 @@ export const MODULES: Record<ModuleId, ModuleDef> = {
   jobs: { id: 'jobs', label: 'Trabajos pendientes', icon: '🛠️', path: '/trabajos' },
   employees: { id: 'employees', label: 'Empleados', icon: '🧑‍🤝‍🧑', path: '/empleados' },
   records: { id: 'records', label: 'Fichas', icon: '🗂️', path: '/fichas' },
+  rentals: { id: 'rentals', label: 'Alquileres', icon: '🏠', path: '/alquileres' },
   reports: { id: 'reports', label: 'Informes', icon: '📈', path: '/informes' },
   settings: { id: 'settings', label: 'Ajustes', icon: '⚙️', path: '/ajustes' },
 }
@@ -56,10 +58,10 @@ export const MODULES: Record<ModuleId, ModuleDef> = {
 export const TOGGLEABLE: ModuleId[] = [
   'appointments', 'clients', 'services', 'products', 'ingredients', 'stock',
   'sales', 'expenses', 'transactions', 'invoices', 'quotes', 'debts', 'collections',
-  'jobs', 'employees', 'records',
+  'jobs', 'employees', 'records', 'rentals',
 ]
 
-export type BusinessType = 'salon' | 'restaurant' | 'shop' | 'technician' | 'professional' | 'other'
+export type BusinessType = 'salon' | 'restaurant' | 'shop' | 'technician' | 'professional' | 'rentals' | 'other'
 
 export interface BusinessTypeDef {
   id: BusinessType
@@ -74,11 +76,12 @@ export const BUSINESS_TYPES: BusinessTypeDef[] = [
   { id: 'shop', label: 'Tienda / Abacería / Ferretería', icon: '🏪', modules: ['products', 'stock', 'sales', 'clients', 'debts'] },
   { id: 'technician', label: 'Técnico / Reparaciones', icon: '🔧', modules: ['services', 'clients', 'quotes', 'invoices', 'expenses', 'jobs'] },
   { id: 'professional', label: 'Profesional independiente', icon: '💼', modules: ['clients', 'services', 'invoices', 'expenses', 'collections'] },
+  { id: 'rentals', label: 'Alquileres / Inmobiliaria', icon: '🏠', modules: ['rentals', 'expenses', 'invoices'] },
   { id: 'other', label: 'Otro / General', icon: '🏢', modules: ['sales', 'expenses', 'invoices', 'clients', 'records'] },
 ]
 
 export function businessTypeDef(type?: string): BusinessTypeDef {
-  return BUSINESS_TYPES.find((b) => b.id === type) ?? BUSINESS_TYPES[5]
+  return BUSINESS_TYPES.find((b) => b.id === type) ?? BUSINESS_TYPES.find((b) => b.id === 'other')!
 }
 
 export function modulesFor(type?: string): ModuleId[] {

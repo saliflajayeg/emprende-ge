@@ -154,6 +154,21 @@ create table record_entries (
   date date not null, text text default '', photo text, created_at timestamptz default now()
 );
 
+-- Unidades de alquiler (apartamentos, habitaciones, locales) con inquilino y renta
+create table units (
+  id uuid primary key default gen_random_uuid(),
+  business_id uuid not null references businesses(id) on delete cascade,
+  name text not null default '', type text default 'apartment',
+  rent numeric default 0, tenant_name text default '', tenant_phone text default '',
+  deposit numeric, status text not null default 'occupied',
+  notes text default '', created_at timestamptz default now()
+);
+
+-- Los pagos de alquiler se guardan como transacciones (ingresos) etiquetadas con
+-- la unidad y el mes al que corresponden.
+alter table transactions add column if not exists unit_id uuid references units(id) on delete set null;
+alter table transactions add column if not exists period text;
+
 -- ---------- Funciones auxiliares (SECURITY DEFINER, sin recursión) ----------
 
 create or replace function is_member(bid uuid) returns boolean
@@ -248,6 +263,7 @@ alter table jobs           enable row level security;
 alter table employees      enable row level security;
 alter table records        enable row level security;
 alter table record_entries enable row level security;
+alter table units          enable row level security;
 
 -- businesses
 drop policy if exists biz_sel on businesses;
@@ -275,7 +291,7 @@ create policy inv_admin on invites for all using (is_owner(business_id)) with ch
 do $$
 declare t text;
 begin
-  foreach t in array array['categories','contacts','transactions','invoices','items','appointments','jobs','employees','records','record_entries']
+  foreach t in array array['categories','contacts','transactions','invoices','items','appointments','jobs','employees','records','record_entries','units']
   loop
     execute format('drop policy if exists %I_member on %I', t, t);
     execute format('create policy %I_member on %I for all using (is_member(business_id)) with check (is_member(business_id))', t, t);
@@ -288,7 +304,7 @@ end $$;
 do $$
 declare t text;
 begin
-  foreach t in array array['transactions','invoices','items','appointments','jobs','employees','records','record_entries','contacts','categories','members','businesses']
+  foreach t in array array['transactions','invoices','items','appointments','jobs','employees','records','record_entries','units','contacts','categories','members','businesses']
   loop
     execute format('alter publication supabase_realtime add table %I', t);
   end loop;

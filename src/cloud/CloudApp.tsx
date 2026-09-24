@@ -11,6 +11,7 @@ import Employees from '../pages/Employees'
 import Settings from '../pages/Settings'
 import Invoices from '../pages/Invoices'
 import Records from '../pages/Records'
+import Rentals from '../pages/Rentals'
 import Reports from '../pages/Reports'
 import AdminPanel from './AdminPanel'
 import { useBusiness } from './business'
@@ -49,6 +50,7 @@ export default function CloudApp() {
         <Route path="/presupuestos" element={<Invoices mode="quotes" />} />
 
         <Route path="/fichas" element={<Records />} />
+        <Route path="/alquileres" element={<Rentals />} />
         <Route path="/informes" element={ownerOnly(<Reports />)} />
         <Route path="/ajustes" element={ownerOnly(<Settings />)} />
         <Route path="/admin" element={adminOnly(<AdminPanel />)} />
