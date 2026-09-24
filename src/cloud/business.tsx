@@ -84,9 +84,12 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
       supabase.from('members').select('business_id, role').eq('user_id', user.id),
       supabase.from('admins').select('user_id').eq('user_id', user.id).maybeSingle(),
     ])
-    const list = (biz ?? []).map((r) => keysToCamel<Business>(r))
     const roles: Record<string, 'owner' | 'employee'> = {}
     for (const m of mem ?? []) roles[m.business_id] = m.role
+    // Solo los negocios de los que soy miembro (el admin puede LEER todos por RLS,
+    // pero en la app normal solo debe ver los suyos; el resto van al panel de Admin).
+    const memberIds = new Set(Object.keys(roles))
+    const list = (biz ?? []).map((r) => keysToCamel<Business>(r)).filter((b) => memberIds.has(b.id))
     setBusinesses(list)
     setRoleByBiz(roles)
     setIsAdmin(!!adm)
