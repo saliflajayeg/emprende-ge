@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { BUSINESS_TYPES, MODULES, modulesFor, type BusinessType } from '../modules'
+import { BUSINESS_TYPES, MODULES, modulesFor, withDeps, type BusinessType } from '../modules'
 import { useBusiness } from './business'
 import { useAuth } from './auth'
 import { Button, Field, Input, Select } from '../components/ui'
@@ -43,7 +43,7 @@ export default function CreateBusiness({ onCancel }: { onCancel?: () => void }) 
         name: form.businessName.trim(),
         ownerName: form.ownerName.trim(),
         businessType: type,
-        enabledModules: modulesFor(type),
+        enabledModules: withDeps(modulesFor(type)),
         currency: form.currency,
         taxRate: form.taxRate,
       })
@@ -144,7 +144,7 @@ export default function CreateBusiness({ onCancel }: { onCancel?: () => void }) 
             </div>
             {selectedType && (
               <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
-                Verás: {selectedType.modules.map((m) => MODULES[m].label).join(' · ')}
+                Verás: {withDeps(selectedType.modules).map((m) => MODULES[m].label).join(' · ')}
               </div>
             )}
             <Button className="w-full" onClick={() => setStep(2)} disabled={!form.businessType}>

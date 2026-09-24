@@ -86,13 +86,18 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     ])
     const roles: Record<string, 'owner' | 'employee'> = {}
     for (const m of mem ?? []) roles[m.business_id] = m.role
-    // Solo los negocios de los que soy miembro (el admin puede LEER todos por RLS,
-    // pero en la app normal solo debe ver los suyos; el resto van al panel de Admin).
+    const admin = !!adm
+    const all = (biz ?? []).map((r) => keysToCamel<Business>(r))
+    // El admin puede LEER todos los negocios por RLS, pero en la app normal solo
+    // debe ver los suyos (el resto van al panel de Admin). Filtramos SOLO para el
+    // admin, y con respaldo por owner_id para no ocultar los propios si la consulta
+    // de miembros llega vacía en el arranque en frío. El usuario normal no se filtra
+    // (RLS ya solo le devuelve los suyos), evitando esconderle sus negocios.
     const memberIds = new Set(Object.keys(roles))
-    const list = (biz ?? []).map((r) => keysToCamel<Business>(r)).filter((b) => memberIds.has(b.id))
+    const list = admin ? all.filter((b) => memberIds.has(b.id) || b.ownerId === user.id) : all
     setBusinesses(list)
     setRoleByBiz(roles)
-    setIsAdmin(!!adm)
+    setIsAdmin(admin)
     // negocio actual: el guardado si sigue existiendo, si no el primero
     let saved: string | null = null
     try { saved = localStorage.getItem(CURRENT_KEY) } catch { /* */ }

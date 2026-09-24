@@ -5,7 +5,7 @@ import { useBusiness } from '../cloud/business'
 import { useAuth } from '../cloud/auth'
 import { legacySummary, importLegacy, type LegacySummary } from '../cloud/importLegacy'
 import { fileToDataURL } from '../lib/image'
-import { BUSINESS_TYPES, MODULES, TOGGLEABLE, modulesFor, type ModuleId } from '../modules'
+import { BUSINESS_TYPES, MODULES, TOGGLEABLE, MODULE_DEPS, modulesFor, withDeps, type ModuleId } from '../modules'
 import { Card, Button, Field, Input, Select } from '../components/ui'
 
 const TABLE_LABEL: Record<string, string> = {
@@ -60,7 +60,7 @@ export default function Settings() {
     if (!confirm('Esto ajustará los módulos visibles del menú a los de ese tipo de negocio. ¿Continuar?')) return
     await updateBusiness({
       businessType: type,
-      enabledModules: modulesFor(type),
+      enabledModules: withDeps(modulesFor(type)),
       sector: BUSINESS_TYPES.find((b) => b.id === type)?.label ?? '',
     })
     flash('Módulos actualizados ✓')
@@ -68,8 +68,14 @@ export default function Settings() {
 
   async function toggleModule(id: ModuleId) {
     const s = new Set(enabled)
-    if (s.has(id)) s.delete(id)
-    else s.add(id)
+    if (s.has(id)) {
+      s.delete(id)
+    } else {
+      // Al activar un módulo se activan también sus dependencias
+      // (servicios→citas, productos/ingredientes→stock).
+      s.add(id)
+      for (const dep of MODULE_DEPS[id] ?? []) s.add(dep)
+    }
     await updateBusiness({ enabledModules: [...s] })
   }
 
@@ -246,7 +252,10 @@ export default function Settings() {
             )
           })}
         </div>
-        <p className="mt-2 text-xs text-slate-400">Panel, Informes y Ajustes siempre están visibles.</p>
+        <p className="mt-2 text-xs text-slate-400">
+          Panel, Informes y Ajustes siempre están visibles. Al activar <b>Servicios</b> se añaden las <b>Citas</b>,
+          y al activar <b>Productos</b> o <b>Ingredientes</b> se añade el <b>Stock</b>.
+        </p>
       </Card>
 
       <Card>

@@ -61,6 +61,22 @@ export const TOGGLEABLE: ModuleId[] = [
   'jobs', 'employees', 'records', 'rentals',
 ]
 
+// Dependencias entre módulos: activar el primero arrastra automáticamente los
+// segundos. Ej.: si ofreces servicios, tiene sentido gestionar citas; si vendes
+// productos o llevas ingredientes, necesitas stock.
+export const MODULE_DEPS: Partial<Record<ModuleId, ModuleId[]>> = {
+  services: ['appointments'],
+  products: ['stock'],
+  ingredients: ['stock'],
+}
+
+// Expande una lista de módulos añadiendo sus dependencias (sin duplicados).
+export function withDeps(ids: ModuleId[]): ModuleId[] {
+  const set = new Set<ModuleId>(ids)
+  for (const id of ids) for (const dep of MODULE_DEPS[id] ?? []) set.add(dep)
+  return [...set]
+}
+
 export type BusinessType =
   | 'salon' | 'restaurant' | 'foodstall' | 'shop' | 'technician' | 'professional'
   | 'rentals' | 'school' | 'ngo' | 'shelter' | 'agro' | 'transport' | 'health' | 'other'
