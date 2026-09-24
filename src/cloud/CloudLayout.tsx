@@ -55,6 +55,11 @@ export default function CloudLayout({ children }: { children: ReactNode }) {
     }))
   if (isAdmin) NAV.push({ to: '/admin', label: 'Admin', icon: '🛡️' })
 
+  // Cabecera: logo del negocio si lo tiene; si no, la marca GEmprende
+  const brandLogo = current?.logo || '/logo-mark.png'
+  const brandName = current?.logo ? current?.name || 'Mi negocio' : 'GEmprende'
+  const logoFit = current?.logo ? 'object-contain bg-white' : 'object-cover'
+
   const Switcher = () => (
     <select
       value={current?.id}
@@ -69,8 +74,8 @@ export default function CloudLayout({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen">
       <aside className="hidden w-64 shrink-0 flex-col border-r border-slate-200 bg-white p-4 md:flex">
         <button onClick={() => navigate('/')} className="mb-4 flex items-center gap-2 text-left">
-          <img src="/logo-mark.png" alt="GEmprende" className="h-9 w-9 rounded-lg object-cover" />
-          <div className="font-bold leading-tight text-slate-800">GEmprende</div>
+          <img src={brandLogo} alt={brandName} className={`h-9 w-9 shrink-0 rounded-lg ${logoFit}`} />
+          <div className="min-w-0 truncate font-bold leading-tight text-slate-800">{brandName}</div>
         </button>
         <div className="mb-3"><Switcher /></div>
         <NavItems items={NAV} />
@@ -82,9 +87,9 @@ export default function CloudLayout({ children }: { children: ReactNode }) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 md:hidden">
-          <div className="flex items-center gap-2">
-            <img src="/logo-mark.png" alt="GEmprende" className="h-8 w-8 rounded-lg object-cover" />
-            <span className="font-bold text-slate-800">GEmprende</span>
+          <div className="flex min-w-0 items-center gap-2">
+            <img src={brandLogo} alt={brandName} className={`h-8 w-8 shrink-0 rounded-lg ${logoFit}`} />
+            <span className="min-w-0 truncate font-bold text-slate-800">{brandName}</span>
           </div>
           <div className="flex items-center gap-2">
             <SyncBadge />
@@ -93,6 +98,24 @@ export default function CloudLayout({ children }: { children: ReactNode }) {
         </header>
 
         <main className="flex-1 p-4 sm:p-6">{children}</main>
+
+        <footer className="border-t border-slate-200 bg-white px-4 py-6">
+          <div className="mx-auto flex max-w-md flex-col items-center gap-2 text-center">
+            <div className="flex items-center gap-2">
+              <img src="/logo-mark.png" alt="GEmprende" className="h-8 w-8 rounded-lg object-cover" />
+              <span className="font-bold text-slate-700">GEmprende</span>
+            </div>
+            <p className="text-xs text-slate-500">Impulsando a los emprendedores de Guinea Ecuatorial 🇬🇶</p>
+            <a
+              href="https://emprendege.mercadosemu.com"
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs font-medium text-teal-600 hover:underline"
+            >
+              emprendege.mercadosemu.com
+            </a>
+          </div>
+        </footer>
       </div>
 
       {open && (
