@@ -4,6 +4,9 @@ import { navModules, modulesFor, type ModuleId } from '../modules'
 import { useAuth } from './auth'
 import { useBusiness } from './business'
 import { getSyncStatus, onSync, type SyncStatus } from './sync'
+import CreateBusiness from './CreateBusiness'
+
+const MAX_BUSINESSES = 5
 
 function SyncBadge() {
   const [s, setS] = useState<SyncStatus>(getSyncStatus())
@@ -40,7 +43,9 @@ export default function CloudLayout({ children }: { children: ReactNode }) {
   const { signOut } = useAuth()
   const { current, businesses, setCurrent, role, isAdmin } = useBusiness()
   const [open, setOpen] = useState(false)
+  const [adding, setAdding] = useState(false)
   const navigate = useNavigate()
+  const atMax = businesses.length >= MAX_BUSINESSES
 
   const isEmployee = role === 'employee'
   const enabled = (current?.enabledModules as ModuleId[] | undefined) ?? modulesFor(current?.businessType)
@@ -60,14 +65,24 @@ export default function CloudLayout({ children }: { children: ReactNode }) {
   const brandName = current?.logo ? current?.name || 'Mi negocio' : 'GEmprende'
   const logoFit = current?.logo ? 'object-contain bg-white' : 'object-cover'
 
-  const Switcher = () => (
-    <select
-      value={current?.id}
-      onChange={(e) => setCurrent(e.target.value)}
-      className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-teal-500"
-    >
-      {businesses.map((b) => <option key={b.id} value={b.id}>{b.name || 'Sin nombre'}</option>)}
-    </select>
+  const Switcher = ({ onAdd }: { onAdd: () => void }) => (
+    <div className="space-y-1.5">
+      <select
+        value={current?.id}
+        onChange={(e) => setCurrent(e.target.value)}
+        className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-teal-500"
+      >
+        {businesses.map((b) => <option key={b.id} value={b.id}>{b.name || 'Sin nombre'}</option>)}
+      </select>
+      <button
+        onClick={onAdd}
+        disabled={atMax}
+        title={atMax ? `Máximo ${MAX_BUSINESSES} negocios` : 'Añadir otro negocio'}
+        className="w-full rounded-lg border border-dashed border-slate-300 px-2 py-1.5 text-xs font-medium text-slate-500 transition hover:border-teal-400 hover:text-teal-600 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {atMax ? `Máximo ${MAX_BUSINESSES} negocios` : '➕ Añadir negocio'}
+      </button>
+    </div>
   )
 
   return (
@@ -77,7 +92,7 @@ export default function CloudLayout({ children }: { children: ReactNode }) {
           <img src={brandLogo} alt={brandName} className={`h-9 w-9 shrink-0 rounded-lg ${logoFit}`} />
           <div className="min-w-0 truncate font-bold leading-tight text-slate-800">{brandName}</div>
         </button>
-        <div className="mb-3"><Switcher /></div>
+        <div className="mb-3"><Switcher onAdd={() => setAdding(true)} /></div>
         <NavItems items={NAV} />
         <div className="mt-auto space-y-1 pt-4">
           <SyncBadge />
@@ -126,12 +141,18 @@ export default function CloudLayout({ children }: { children: ReactNode }) {
               <span className="font-bold text-slate-800">Menú</span>
               <button onClick={() => setOpen(false)} className="p-1 text-slate-400">✕</button>
             </div>
-            <div className="mb-3"><Switcher /></div>
+            <div className="mb-3"><Switcher onAdd={() => { setOpen(false); setAdding(true) }} /></div>
             <NavItems items={NAV} onClick={() => setOpen(false)} />
             <div className="mt-4 border-t border-slate-100 pt-3">
               <button onClick={signOut} className="text-sm text-slate-500">Cerrar sesión</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {adding && (
+        <div className="fixed inset-0 z-[60] overflow-y-auto">
+          <CreateBusiness onCancel={() => setAdding(false)} />
         </div>
       )}
     </div>

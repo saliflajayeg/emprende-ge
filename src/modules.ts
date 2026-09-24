@@ -61,7 +61,9 @@ export const TOGGLEABLE: ModuleId[] = [
   'jobs', 'employees', 'records', 'rentals',
 ]
 
-export type BusinessType = 'salon' | 'restaurant' | 'shop' | 'technician' | 'professional' | 'rentals' | 'other'
+export type BusinessType =
+  | 'salon' | 'restaurant' | 'foodstall' | 'shop' | 'technician' | 'professional'
+  | 'rentals' | 'school' | 'ngo' | 'shelter' | 'agro' | 'transport' | 'health' | 'other'
 
 export interface BusinessTypeDef {
   id: BusinessType
@@ -73,10 +75,17 @@ export interface BusinessTypeDef {
 export const BUSINESS_TYPES: BusinessTypeDef[] = [
   { id: 'salon', label: 'Peluquería / Belleza', icon: '💈', modules: ['appointments', 'clients', 'services', 'sales', 'expenses', 'employees'] },
   { id: 'restaurant', label: 'Restaurante / Bar', icon: '🍽️', modules: ['sales', 'products', 'ingredients', 'stock', 'expenses'] },
+  { id: 'foodstall', label: 'Puesto de comida', icon: '🍢', modules: ['sales', 'products', 'ingredients', 'stock', 'expenses'] },
   { id: 'shop', label: 'Tienda / Abacería / Ferretería', icon: '🏪', modules: ['products', 'stock', 'sales', 'clients', 'debts'] },
   { id: 'technician', label: 'Técnico / Reparaciones', icon: '🔧', modules: ['services', 'clients', 'quotes', 'invoices', 'expenses', 'jobs'] },
   { id: 'professional', label: 'Profesional independiente', icon: '💼', modules: ['clients', 'services', 'invoices', 'expenses', 'collections'] },
   { id: 'rentals', label: 'Alquileres / Inmobiliaria', icon: '🏠', modules: ['rentals', 'expenses', 'invoices'] },
+  { id: 'school', label: 'Escuela / Academia', icon: '🎓', modules: ['records', 'invoices', 'collections', 'expenses', 'employees'] },
+  { id: 'ngo', label: 'ONG / Asociación', icon: '🤝', modules: ['records', 'transactions', 'expenses'] },
+  { id: 'shelter', label: 'Acogida / Centro de menores', icon: '🏡', modules: ['records', 'expenses', 'employees'] },
+  { id: 'health', label: 'Clínica / Consultorio', icon: '🩺', modules: ['appointments', 'records', 'invoices', 'expenses'] },
+  { id: 'agro', label: 'Agricultura / Ganadería', icon: '🌾', modules: ['sales', 'products', 'stock', 'expenses'] },
+  { id: 'transport', label: 'Transporte / Taxi', icon: '🚗', modules: ['services', 'clients', 'sales', 'expenses'] },
   { id: 'other', label: 'Otro / General', icon: '🏢', modules: ['sales', 'expenses', 'invoices', 'clients', 'records'] },
 ]
 
