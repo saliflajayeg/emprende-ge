@@ -76,6 +76,9 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
       setLoading(false)
       return
     }
+    // Asegura que el token de sesión esté cargado antes de consultar; si no,
+    // en el arranque en frío la primera consulta puede volver vacía (RLS).
+    try { await supabase.auth.getSession() } catch { /* */ }
     const [{ data: biz }, { data: mem }, { data: adm }] = await Promise.all([
       supabase.from('businesses').select('*').order('created_at'),
       supabase.from('members').select('business_id, role').eq('user_id', user.id),

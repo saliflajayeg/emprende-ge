@@ -16,6 +16,12 @@ function shiftMonth(period: string, n: number): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
 }
 
+// Nombre del mes en un idioma concreto (para el recordatorio multilingüe)
+function monthIn(period: string, locale: string): string {
+  const [y, m] = period.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString(locale, { month: 'long', year: 'numeric', timeZone: 'UTC' })
+}
+
 function UnitForm({ existing, onDone }: { existing?: Unit; onDone: () => void }) {
   const [form, setForm] = useState({
     name: existing?.name ?? '',
@@ -125,7 +131,8 @@ function History({ unit, onClose }: { unit: Unit; onClose: () => void }) {
 }
 
 export default function Rentals() {
-  const bid = useBusiness().current?.id ?? ''
+  const { current } = useBusiness()
+  const bid = current?.id ?? ''
   const units = useLiveQuery(() => (bid ? ldb.units.where('businessId').equals(bid).toArray() : []), [bid])
   const txs = useLiveQuery(() => (bid ? ldb.transactions.where('businessId').equals(bid).toArray() : []), [bid])
   const categories = useLiveQuery(() => (bid ? ldb.categories.where('businessId').equals(bid).toArray() : []), [bid])
@@ -169,6 +176,22 @@ export default function Rentals() {
   async function unmark(unit: Unit) {
     const pay = paymentFor(unit.id, period)
     if (pay) await removeRow('transactions', pay.id)
+  }
+
+  // Recordatorio de pago por WhatsApp, con el mensaje escrito en ES / FR / EN
+  function remind(unit: Unit) {
+    const rent = money(unit.rent)
+    const name = unit.tenantName || ''
+    const biz = current?.name || ''
+    const es = monthIn(period, 'es-ES'), fr = monthIn(period, 'fr-FR'), en = monthIn(period, 'en-US')
+    const msg =
+      `Hola ${name}, le recordamos amablemente el pago del alquiler de "${unit.name}" correspondiente a ${es}: ${rent}. Gracias.\n\n` +
+      `Bonjour ${name}, nous vous rappelons aimablement le paiement du loyer de « ${unit.name} » pour ${fr} : ${rent}. Merci.\n\n` +
+      `Hello ${name}, this is a friendly reminder for the rent payment of "${unit.name}" for ${en}: ${rent}. Thank you.` +
+      (biz ? `\n\n— ${biz}` : '')
+    const digits = (unit.tenantPhone || '').replace(/[^0-9]/g, '')
+    const base = digits.length >= 8 ? `https://wa.me/${digits}` : 'https://wa.me/'
+    window.open(`${base}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener')
   }
 
   async function removeUnit(u: Unit) {
@@ -231,7 +254,18 @@ export default function Rentals() {
                     {canDelete && <button onClick={() => unmark(u)} className="text-xs text-teal-600 hover:underline">Anular</button>}
                   </div>
                 ) : (
-                  <Button onClick={() => markPaid(u)} className="mt-3 w-full">Marcar pagado ({monthLabel(period).split(' ')[0]})</Button>
+                  <div className="mt-3 flex gap-2">
+                    <Button onClick={() => markPaid(u)} className="flex-1">Marcar pagado ({monthLabel(period).split(' ')[0]})</Button>
+                    {u.tenantPhone && (
+                      <button
+                        onClick={() => remind(u)}
+                        className="grid w-11 shrink-0 place-items-center rounded-lg bg-[#25D366] text-white hover:bg-[#1ebe5b]"
+                        title="Recordar el pago por WhatsApp"
+                      >
+                        📲
+                      </button>
+                    )}
+                  </div>
                 )}
               </Card>
             )
