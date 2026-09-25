@@ -9,6 +9,7 @@ import { StatCard, Card, Button, Modal, EmptyState } from '../components/ui'
 import { CashFlowChart, DonutChart } from '../components/charts'
 import TxForm from '../components/TxForm'
 import DayAgenda from '../components/DayAgenda'
+import PendingRequests from '../components/PendingRequests'
 
 export default function Dashboard() {
   const { current } = useBusiness()
@@ -48,6 +49,8 @@ export default function Dashboard() {
           <Button variant="danger" onClick={() => setModal('expense')}>+ Gasto</Button>
         </div>
       </div>
+
+      <PendingRequests />
 
       <DayAgenda bid={bid} enabled={enabled} recordsLabel={current?.recordsLabel} />
 
