@@ -15,6 +15,46 @@ const TABLE_LABEL: Record<string, string> = {
 
 const PALETTE = ['#0d9488', '#0ea5e9', '#8b5cf6', '#ef4444', '#f97316', '#eab308', '#84cc16', '#ec4899', '#6366f1']
 
+// Editor de categorías (a nivel de módulo para que el input NO pierda el foco al
+// escribir; si estuviera definido dentro de Settings se recrearía en cada tecla).
+function CatList({
+  title, cats, value, onChange, onAdd, onDelete,
+}: {
+  title: string
+  cats: Category[]
+  value: string
+  onChange: (v: string) => void
+  onAdd: () => void
+  onDelete: (id?: string) => void
+}) {
+  return (
+    <div>
+      <div className="mb-2 text-sm font-semibold text-slate-600">{title}</div>
+      <div className="mb-2 flex flex-wrap gap-2">
+        {cats.map((c) => (
+          <span
+            key={c.id}
+            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-sm"
+          >
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: c.color }} />
+            {c.name}
+            <button onClick={() => onDelete(c.id)} className="text-slate-300 hover:text-red-500">✕</button>
+          </span>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <Input
+          placeholder="Nueva categoría…"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && onAdd()}
+        />
+        <Button variant="outline" onClick={onAdd}>Añadir</Button>
+      </div>
+    </div>
+  )
+}
+
 export default function Settings() {
   const { current, updateBusiness, members, createInvite, removeMember } = useBusiness()
   const { user } = useAuth()
@@ -129,33 +169,6 @@ export default function Settings() {
 
   const employee = members.find((m) => m.role === 'employee')
 
-  const Cats = ({ kind, title }: { kind: Kind; title: string }) => (
-    <div>
-      <div className="mb-2 text-sm font-semibold text-slate-600">{title}</div>
-      <div className="mb-2 flex flex-wrap gap-2">
-        {categories.filter((c) => c.kind === kind).map((c) => (
-          <span
-            key={c.id}
-            className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-sm"
-          >
-            <span className="h-2.5 w-2.5 rounded-full" style={{ background: c.color }} />
-            {c.name}
-            <button onClick={() => delCategory(c.id)} className="text-slate-300 hover:text-red-500">✕</button>
-          </span>
-        ))}
-      </div>
-      <div className="flex gap-2">
-        <Input
-          placeholder="Nueva categoría…"
-          value={newCat[kind]}
-          onChange={(e) => setNewCat((s) => ({ ...s, [kind]: e.target.value }))}
-          onKeyDown={(e) => e.key === 'Enter' && addCategory(kind)}
-        />
-        <Button variant="outline" onClick={() => addCategory(kind)}>Añadir</Button>
-      </div>
-    </div>
-  )
-
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
@@ -261,8 +274,22 @@ export default function Settings() {
       <Card>
         <h2 className="mb-4 font-semibold text-slate-800">Categorías</h2>
         <div className="grid gap-6 sm:grid-cols-2">
-          <Cats kind="income" title="Ingresos" />
-          <Cats kind="expense" title="Gastos" />
+          <CatList
+            title="Ingresos"
+            cats={categories.filter((c) => c.kind === 'income')}
+            value={newCat.income}
+            onChange={(v) => setNewCat((s) => ({ ...s, income: v }))}
+            onAdd={() => addCategory('income')}
+            onDelete={delCategory}
+          />
+          <CatList
+            title="Gastos"
+            cats={categories.filter((c) => c.kind === 'expense')}
+            value={newCat.expense}
+            onChange={(v) => setNewCat((s) => ({ ...s, expense: v }))}
+            onAdd={() => addCategory('expense')}
+            onDelete={delCategory}
+          />
         </div>
       </Card>
 
