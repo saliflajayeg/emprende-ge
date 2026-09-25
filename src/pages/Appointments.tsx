@@ -21,6 +21,7 @@ function ApptForm({ existing, onDone }: { existing?: Appointment; onDone: () => 
     time: existing?.time ?? '10:00',
     clientId: existing?.clientId ?? '',
     clientName: existing?.clientName ?? '',
+    clientPhone: existing?.clientPhone ?? '',
     service: existing?.service ?? '',
     price: existing?.price ? String(existing.price) : '',
     status: existing?.status ?? 'pending',
@@ -46,6 +47,7 @@ function ApptForm({ existing, onDone }: { existing?: Appointment; onDone: () => 
       time: form.time,
       clientId: form.clientId || undefined,
       clientName: form.clientName.trim(),
+      clientPhone: form.clientPhone.trim(),
       service: form.service.trim(),
       price: Number(form.price) || 0,
       status: form.status as ApptStatus,
@@ -71,7 +73,10 @@ function ApptForm({ existing, onDone }: { existing?: Appointment; onDone: () => 
           </Select>
         </Field>
       )}
-      <Field label="Cliente"><Input value={form.clientName} onChange={(e) => set('clientName', e.target.value)} placeholder="Nombre del cliente" /></Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Cliente"><Input value={form.clientName} onChange={(e) => set('clientName', e.target.value)} placeholder="Nombre del cliente" /></Field>
+        <Field label="Teléfono"><Input type="tel" value={form.clientPhone} onChange={(e) => set('clientPhone', e.target.value)} placeholder="+240 …" /></Field>
+      </div>
       <Field label="Servicio">
         {services && services.length > 0 ? (
           <Select value={form.service} onChange={(e) => pickService(e.target.value)}>
@@ -102,16 +107,23 @@ function ApptForm({ existing, onDone }: { existing?: Appointment; onDone: () => 
 }
 
 export default function Appointments() {
-  const bid = useBusiness().current?.id ?? ''
+  const { current } = useBusiness()
+  const bid = current?.id ?? ''
   const { canDelete } = usePerms()
   const appts = useLiveQuery(() => (bid ? ldb.appointments.where('businessId').equals(bid).toArray() : []), [bid])
   const [modal, setModal] = useState<null | { appt?: Appointment }>(null)
   const [showPast, setShowPast] = useState(false)
 
   const today = todayISO()
+  // Solicitudes públicas pendientes de aprobación (llegan por el enlace de reservas)
+  const requests = useMemo(
+    () => [...(appts ?? [])].filter((a) => a.approved === false && a.status !== 'cancelled').sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)),
+    [appts],
+  )
   const sorted = useMemo(
     () =>
       [...(appts ?? [])]
+        .filter((a) => a.approved !== false) // las no aprobadas van en su propia sección
         .filter((a) => (showPast ? true : a.date >= today || a.status === 'pending'))
         .sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)),
     [appts, showPast, today],
@@ -128,12 +140,48 @@ export default function Appointments() {
     if (confirm('¿Eliminar esta cita?')) await removeRow('appointments', id)
   }
 
+  async function approve(a: Appointment) {
+    if (!a.id) return
+    await ldb.appointments.update(a.id, { approved: true, status: 'pending' })
+    // Confirmación por WhatsApp al cliente (si dejó teléfono)
+    const digits = (a.clientPhone || '').replace(/[^0-9]/g, '')
+    const msg = `✅ Hola ${a.clientName || ''}, tu cita en ${current?.name || ''} ha sido confirmada para el ${formatDate(a.date)}${a.time ? ` a las ${a.time}` : ''}${a.service ? ` · ${a.service}` : ''}. ¡Te esperamos!`
+    if (digits.length >= 8) window.open(`https://wa.me/${digits}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener')
+  }
+  async function reject(a: Appointment) {
+    if (!a.id) return
+    if (confirm('¿Rechazar esta solicitud de cita?')) await ldb.appointments.update(a.id, { status: 'cancelled', approved: true })
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-slate-800">Citas</h1>
         <Button onClick={() => setModal({})}>+ Nueva cita</Button>
       </div>
+
+      {requests.length > 0 && (
+        <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50/60 p-3">
+          <div className="text-sm font-semibold text-amber-800">🔔 Solicitudes por aprobar ({requests.length})</div>
+          {requests.map((a) => (
+            <Card key={a.id} className="flex flex-wrap items-center gap-3">
+              <div className="text-center">
+                <div className="text-xs uppercase text-slate-400">{formatDate(a.date)}</div>
+                <div className="text-lg font-bold text-teal-700">{a.time}</div>
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold text-slate-800">{a.clientName || 'Cliente'}{a.clientPhone ? ` · ${a.clientPhone}` : ''}</div>
+                <div className="text-sm text-slate-500">{a.service}{a.price ? ` · ${money(a.price)}` : ''}</div>
+                {a.notes && <div className="text-xs text-slate-400">{a.notes}</div>}
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={() => approve(a)} className="px-3 py-1.5 text-sm">✓ Aprobar</Button>
+                <Button variant="outline" onClick={() => reject(a)} className="px-3 py-1.5 text-sm">Rechazar</Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
 
       <label className="flex items-center gap-2 text-sm text-slate-600">
         <input type="checkbox" checked={showPast} onChange={(e) => setShowPast(e.target.checked)} />

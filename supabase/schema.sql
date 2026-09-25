@@ -118,9 +118,10 @@ create table appointments (
   id uuid primary key default gen_random_uuid(),
   business_id uuid not null references businesses(id) on delete cascade,
   date date not null, time text default '', client_id uuid references contacts(id) on delete set null,
-  client_name text default '', service text default '', price numeric default 0,
+  client_name text default '', client_phone text default '', service text default '', price numeric default 0,
   status text not null default 'pending' check (status in ('pending','done','cancelled')),
-  notes text default '', created_at timestamptz default now()
+  notes text default '', approved boolean default true, source text default 'manual',
+  created_at timestamptz default now()
 );
 
 create table jobs (

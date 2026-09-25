@@ -168,6 +168,17 @@ export default function Settings() {
   }
 
   const employee = members.find((m) => m.role === 'employee')
+  const bookingUrl = `https://emprendege.mercadosemu.com/#/reservar/${bid}`
+
+  async function copyBooking() {
+    try { await navigator.clipboard.writeText(bookingUrl); flash('Enlace copiado ✓') } catch { flash('Copia el enlace manualmente') }
+  }
+  function shareBooking() {
+    const text = `Pide tu cita en ${current!.name}: ${bookingUrl}`
+    const nav = navigator as any
+    if (nav.share) { nav.share({ title: current!.name, text, url: bookingUrl }).catch(() => {}) }
+    else window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener')
+  }
 
   return (
     <div className="space-y-5">
@@ -371,6 +382,25 @@ export default function Settings() {
           )}
         </Card>
       )}
+
+      <Card>
+        <h2 className="mb-1 font-semibold text-slate-800">🔗 Enlace de reservas</h2>
+        <p className="mb-3 text-sm text-slate-500">
+          Comparte este enlace en tus redes sociales o WhatsApp. Tus clientes podrán <b>pedir cita</b> eligiendo
+          servicio y día; te llegará como <b>solicitud por aprobar</b> en la sección de Citas.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            readOnly
+            value={bookingUrl}
+            onFocus={(e) => e.currentTarget.select()}
+            className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600"
+          />
+          <Button variant="outline" onClick={copyBooking}>Copiar</Button>
+          <Button onClick={shareBooking}>Compartir</Button>
+        </div>
+        <p className="mt-2 text-xs text-slate-400">Consejo: activa el módulo <b>Servicios</b> para que aparezcan tus servicios en el enlace.</p>
+      </Card>
 
       <Card>
         <h2 className="mb-1 font-semibold text-slate-800">☁️ Tus datos en la nube</h2>

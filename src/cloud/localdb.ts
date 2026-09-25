@@ -47,8 +47,8 @@ export interface Item extends Base {
   trackStock: boolean; stock: number; lowStock: number; notes: string; createdAt: string
 }
 export interface Appointment extends Base {
-  date: string; time: string; clientId?: string; clientName: string; service: string
-  price: number; status: ApptStatus; notes: string; createdAt: string
+  date: string; time: string; clientId?: string; clientName: string; clientPhone?: string; service: string
+  price: number; status: ApptStatus; notes: string; approved?: boolean; source?: string; createdAt: string
 }
 export interface Job extends Base {
   title: string; clientId?: string; clientName: string; status: JobStatus; dueDate?: string; notes: string; createdAt: string
