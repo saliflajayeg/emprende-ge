@@ -60,6 +60,17 @@ const Ctx = createContext<BusinessCtx>({
   removeMember: async () => {},
 })
 const CURRENT_KEY = 'gemprende-current-business'
+// Copia local de la lista de negocios (+ roles + admin) para poder abrir la app
+// SIN conexión: si la consulta a Supabase falla por falta de red, hidratamos desde aquí
+// en vez de mandar al usuario a "Crear negocio".
+const BIZ_CACHE_KEY = 'gemprende-biz-cache'
+interface BizCache { businesses: Business[]; roles: Record<string, 'owner' | 'employee'>; admin: boolean }
+function readBizCache(): BizCache | null {
+  try {
+    const raw = localStorage.getItem(BIZ_CACHE_KEY)
+    return raw ? (JSON.parse(raw) as BizCache) : null
+  } catch { return null }
+}
 
 export function BusinessProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
@@ -79,22 +90,40 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     // Asegura que el token de sesión esté cargado antes de consultar; si no,
     // en el arranque en frío la primera consulta puede volver vacía (RLS).
     try { await supabase.auth.getSession() } catch { /* */ }
-    const [{ data: biz }, { data: mem }, { data: adm }] = await Promise.all([
-      supabase.from('businesses').select('*').order('created_at'),
-      supabase.from('members').select('business_id, role').eq('user_id', user.id),
-      supabase.from('admins').select('user_id').eq('user_id', user.id).maybeSingle(),
-    ])
-    const roles: Record<string, 'owner' | 'employee'> = {}
-    for (const m of mem ?? []) roles[m.business_id] = m.role
-    const admin = !!adm
-    const all = (biz ?? []).map((r) => keysToCamel<Business>(r))
-    // El admin puede LEER todos los negocios por RLS, pero en la app normal solo
-    // debe ver los suyos (el resto van al panel de Admin). Filtramos SOLO para el
-    // admin, y con respaldo por owner_id para no ocultar los propios si la consulta
-    // de miembros llega vacía en el arranque en frío. El usuario normal no se filtra
-    // (RLS ya solo le devuelve los suyos), evitando esconderle sus negocios.
-    const memberIds = new Set(Object.keys(roles))
-    const list = admin ? all.filter((b) => memberIds.has(b.id) || b.ownerId === user.id) : all
+
+    let list: Business[]
+    let roles: Record<string, 'owner' | 'employee'>
+    let admin: boolean
+    try {
+      const [biz, mem, adm] = await Promise.all([
+        supabase.from('businesses').select('*').order('created_at'),
+        supabase.from('members').select('business_id, role').eq('user_id', user.id),
+        supabase.from('admins').select('user_id').eq('user_id', user.id).maybeSingle(),
+      ])
+      // Si la consulta principal falla (p. ej. sin conexión), caemos al respaldo.
+      if (biz.error) throw biz.error
+      roles = {}
+      for (const m of mem.data ?? []) roles[m.business_id] = m.role
+      admin = !!adm.data
+      const all = (biz.data ?? []).map((r) => keysToCamel<Business>(r))
+      // El admin puede LEER todos los negocios por RLS, pero en la app normal solo
+      // debe ver los suyos (el resto van al panel de Admin). Filtramos SOLO para el
+      // admin, y con respaldo por owner_id para no ocultar los propios si la consulta
+      // de miembros llega vacía en el arranque en frío. El usuario normal no se filtra
+      // (RLS ya solo le devuelve los suyos), evitando esconderle sus negocios.
+      const memberIds = new Set(Object.keys(roles))
+      list = admin ? all.filter((b) => memberIds.has(b.id) || b.ownerId === user.id) : all
+      // Guarda copia local para el arranque offline.
+      try { localStorage.setItem(BIZ_CACHE_KEY, JSON.stringify({ businesses: list, roles, admin } as BizCache)) } catch { /* */ }
+    } catch {
+      // Sin conexión (o error de red): usa la última copia local para poder trabajar offline.
+      const cached = readBizCache()
+      if (!cached) { setBusinesses([]); setLoading(false); return }
+      list = cached.businesses
+      roles = cached.roles
+      admin = cached.admin
+    }
+
     setBusinesses(list)
     setRoleByBiz(roles)
     setIsAdmin(admin)
