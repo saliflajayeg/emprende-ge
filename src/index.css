@@ -65,12 +65,32 @@ button, a, [role="button"] {
 /* El leve overshoot (0.34,1.56,…) da el "rebote" físico tras un gesto. */
 .ge-sheet { animation: ge-sheet-in 0.34s cubic-bezier(0.34, 1.4, 0.64, 1) both; }
 
+/* Menú lateral móvil: entra deslizando desde la izquierda y SALE por el mismo
+   lado (misma ruta = consistencia espacial). El velo se difumina y se aclara. */
+@keyframes ge-scrim-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+@keyframes ge-drawer-in {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+@keyframes ge-drawer-out {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-100%); }
+}
+.ge-scrim-out { animation: ge-scrim-out 0.24s ease-in both; }
+.ge-drawer { animation: ge-drawer-in 0.28s cubic-bezier(0.32, 0.72, 0, 1) both; }
+.ge-drawer-out { animation: ge-drawer-out 0.24s cubic-bezier(0.4, 0, 1, 1) both; }
+
 /* Accesibilidad: con "reduce motion" cambiamos springs/deslizamientos por un
    fundido corto y sin rebote (equivalente no vestibular). */
 @media (prefers-reduced-motion: reduce) {
   .ge-rise,
   .ge-stagger > *,
-  .ge-sheet { animation: ge-scrim-in 0.2s ease-out both; transform: none !important; }
+  .ge-sheet,
+  .ge-drawer { animation: ge-scrim-in 0.2s ease-out both; transform: none !important; }
+  .ge-drawer-out { animation: ge-scrim-out 0.2s ease-in both; transform: none !important; }
 }
 
 /* Utilidad: ocultar en impresión y al exportar */
