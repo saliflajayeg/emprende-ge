@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { signIn, signUp } from './auth'
+import { signIn, signUp, storageAvailable } from './auth'
 import { Button, Field, Input } from '../components/ui'
 
 const BENEFITS = [
@@ -29,6 +29,7 @@ export default function AuthScreen() {
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const storageOk = storageAvailable()
 
   async function submit() {
     setError('')
@@ -48,14 +49,20 @@ export default function AuthScreen() {
     }
     setBusy(true)
     try {
-      if (mode === 'register') await signUp(identifier, password)
-      else await signIn(identifier, password)
+      // Tiempo límite: si la red se cuelga, mostramos error en vez de dejar el
+      // botón en "Un momento…" para siempre.
+      const timeout = new Promise<never>((_, rej) =>
+        setTimeout(() => rej(new Error('La conexión está tardando demasiado. Revisa tu internet e inténtalo de nuevo.')), 20000),
+      )
+      const action = mode === 'register' ? signUp(identifier, password) : signIn(identifier, password)
+      await Promise.race([action, timeout])
       // La sesión se detecta automáticamente (AuthProvider)
     } catch (e) {
       const msg = (e as Error).message || ''
       if (/invalid login/i.test(msg)) setError(isPhone ? 'Teléfono o contraseña incorrectos.' : 'Correo o contraseña incorrectos.')
       else if (/already registered/i.test(msg)) setError(isPhone ? 'Ese teléfono ya tiene cuenta. Inicia sesión.' : 'Ese correo ya tiene cuenta. Inicia sesión.')
-      else setError(msg)
+      else if (/fetch|network|failed to fetch/i.test(msg)) setError('Sin conexión con el servidor. Revisa tu internet e inténtalo de nuevo.')
+      else setError(msg || 'No se pudo completar. Inténtalo de nuevo.')
     }
     setBusy(false)
   }
@@ -122,6 +129,13 @@ export default function AuthScreen() {
                 Registrarme
               </button>
             </div>
+
+            {!storageOk && (
+              <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                ⚠️ Tu navegador está bloqueando el almacenamiento (modo privado/incógnito o datos del sitio
+                bloqueados). El registro no funcionará hasta que lo desactives o abras la app en una pestaña normal.
+              </div>
+            )}
 
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1">

@@ -86,12 +86,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export const useAuth = () => useContext(Ctx)
 
+// ¿Puede el navegador guardar la sesión? Samsung Internet en modo privado (o con
+// datos del sitio bloqueados) impide localStorage: sin esto la sesión no persiste
+// y el registro "no hace nada". Lo comprobamos para avisar con un mensaje claro.
+export function storageAvailable(): boolean {
+  try {
+    const k = '__ge_test__'
+    localStorage.setItem(k, '1')
+    localStorage.removeItem(k)
+    return true
+  } catch {
+    return false
+  }
+}
+
+const STORAGE_MSG =
+  'Tu navegador está bloqueando el almacenamiento. Desactiva el modo privado/incógnito ' +
+  'o permite los datos del sitio, y vuelve a intentarlo.'
+
 // Helpers de autenticación (email + contraseña)
 export async function signUp(email: string, password: string) {
-  const { error } = await supabase.auth.signUp({ email, password })
+  if (!storageAvailable()) throw new Error(STORAGE_MSG)
+  const { data, error } = await supabase.auth.signUp({ email, password })
   if (error) throw error
+  // Si el registro no devuelve sesión, casi siempre es porque la confirmación de
+  // correo está activada en Supabase. Como los teléfonos usan un correo sintético
+  // que nunca se confirma, intentamos iniciar sesión directamente.
+  if (!data.session) {
+    const { error: e2 } = await supabase.auth.signInWithPassword({ email, password })
+    if (e2) {
+      if (/not confirmed|confirm/i.test(e2.message)) {
+        throw new Error(
+          'Cuenta creada, pero falta confirmar el correo. Desactiva "Confirm email" en Supabase (Authentication → Providers → Email) para permitir el registro por teléfono.',
+        )
+      }
+      throw e2
+    }
+  }
 }
 export async function signIn(email: string, password: string) {
+  if (!storageAvailable()) throw new Error(STORAGE_MSG)
   const { error } = await supabase.auth.signInWithPassword({ email, password })
   if (error) throw error
 }
