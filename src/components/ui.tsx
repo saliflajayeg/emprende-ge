@@ -63,6 +63,32 @@ export function Button({
   )
 }
 
+// Botón de icono para acciones de fila (editar, borrar, marcar…). Área de toque
+// cómoda (~40px, guía Apple) y respuesta al pulsar; el color se pasa por className.
+export function IconButton({
+  children,
+  onClick,
+  title,
+  className = 'text-slate-400 hover:text-teal-600',
+}: {
+  children: ReactNode
+  onClick?: () => void
+  title?: string
+  className?: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      aria-label={title}
+      className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg transition-[color,transform] duration-100 ease-out active:scale-90 ${className}`}
+    >
+      {children}
+    </button>
+  )
+}
+
 export function Field({
   label,
   children,

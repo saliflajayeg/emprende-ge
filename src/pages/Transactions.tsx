@@ -5,7 +5,7 @@ import { useBusiness } from '../cloud/business'
 import { usePerms } from '../cloud/perms'
 import { money, formatDate } from '../lib/format'
 import { downloadCSV } from '../lib/csv'
-import { Button, Card, Modal, Badge, Select, Input, EmptyState } from '../components/ui'
+import { Button, Card, Modal, Badge, Select, Input, EmptyState, IconButton } from '../components/ui'
 import TxForm from '../components/TxForm'
 
 export default function Transactions({
@@ -140,12 +140,14 @@ export default function Transactions({
                   <td className="px-4 py-3">
                     <button onClick={() => togglePaid(t)} title="Cambiar estado"><Badge status={t.status} /></button>
                   </td>
-                  <td className={`px-4 py-3 text-right font-semibold ${t.kind === 'income' ? 'text-teal-600' : 'text-red-600'}`}>
+                  <td className={`ge-nums px-4 py-3 text-right font-semibold ${t.kind === 'income' ? 'text-teal-600' : 'text-red-600'}`}>
                     {t.kind === 'income' ? '+' : '−'}{money(t.amount)}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-right">
-                    <button onClick={() => setModal({ kind: t.kind, tx: t })} className="mr-2 text-slate-400 hover:text-teal-600" title="Editar">✎</button>
-                    {canDelete && <button onClick={() => remove(t.id)} className="text-slate-400 hover:text-red-600" title="Eliminar">🗑</button>}
+                    <div className="flex justify-end gap-0.5">
+                      <IconButton onClick={() => setModal({ kind: t.kind, tx: t })} title="Editar">✎</IconButton>
+                      {canDelete && <IconButton onClick={() => remove(t.id)} title="Eliminar" className="text-slate-400 hover:text-red-600">🗑</IconButton>}
+                    </div>
                   </td>
                 </tr>
               ))}

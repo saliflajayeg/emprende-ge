@@ -4,7 +4,7 @@ import { ldb, removeRow, type Appointment, type ApptStatus } from '../cloud/loca
 import { useBusiness } from '../cloud/business'
 import { usePerms } from '../cloud/perms'
 import { money, formatDate, todayISO } from '../lib/format'
-import { Button, Card, Modal, Field, Input, Select, Textarea, EmptyState } from '../components/ui'
+import { Button, Card, Modal, Field, Input, Select, Textarea, EmptyState, IconButton } from '../components/ui'
 import PendingRequests from '../components/PendingRequests'
 
 const STATUS: Record<ApptStatus, { label: string; cls: string }> = {
@@ -169,15 +169,15 @@ export default function Appointments() {
                 {a.notes && <div className="text-xs text-slate-400">{a.notes}</div>}
               </div>
               <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS[a.status].cls}`}>{STATUS[a.status].label}</span>
-              <div className="flex gap-1">
+              <div className="flex gap-0.5">
                 {a.status !== 'done' && (
-                  <button onClick={() => setStatus(a, 'done')} title="Marcar atendida" className="rounded p-1 text-slate-400 hover:text-teal-600">✓</button>
+                  <IconButton onClick={() => setStatus(a, 'done')} title="Marcar atendida">✓</IconButton>
                 )}
                 {a.status !== 'cancelled' && (
-                  <button onClick={() => setStatus(a, 'cancelled')} title="Cancelar" className="rounded p-1 text-slate-400 hover:text-amber-600">⊘</button>
+                  <IconButton onClick={() => setStatus(a, 'cancelled')} title="Cancelar" className="text-slate-400 hover:text-amber-600">⊘</IconButton>
                 )}
-                <button onClick={() => setModal({ appt: a })} className="rounded p-1 text-slate-400 hover:text-teal-600" title="Editar">✎</button>
-                {canDelete && <button onClick={() => remove(a.id)} className="rounded p-1 text-slate-400 hover:text-red-600" title="Eliminar">🗑</button>}
+                <IconButton onClick={() => setModal({ appt: a })} title="Editar">✎</IconButton>
+                {canDelete && <IconButton onClick={() => remove(a.id)} title="Eliminar" className="text-slate-400 hover:text-red-600">🗑</IconButton>}
               </div>
             </Card>
           ))}
