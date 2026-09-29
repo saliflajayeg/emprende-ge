@@ -290,7 +290,7 @@ export default function Invoices({
                   </div>
                   <Badge status={inv.status} />
                 </div>
-                <div className="mt-3 text-xl font-bold text-teal-700">{money(total)}</div>
+                <div className="ge-nums mt-3 text-xl font-bold text-teal-700">{money(total)}</div>
                 <Button
                   className="mt-3 w-full !bg-[#25D366] hover:!bg-[#1ebe5b]"
                   onClick={() => sendWhatsApp(inv)}

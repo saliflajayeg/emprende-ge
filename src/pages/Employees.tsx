@@ -4,7 +4,7 @@ import { ldb, removeRow, type Employee } from '../cloud/localdb'
 import { useBusiness } from '../cloud/business'
 import { usePerms } from '../cloud/perms'
 import { money } from '../lib/format'
-import { Button, Card, Modal, Field, Input, Textarea, EmptyState } from '../components/ui'
+import { Button, Card, Modal, Field, Input, Textarea, EmptyState, IconButton } from '../components/ui'
 
 function EmpForm({ existing, onDone }: { existing?: Employee; onDone: () => void }) {
   const [form, setForm] = useState({
@@ -86,8 +86,8 @@ export default function Employees() {
                   {e.notes && <div className="mt-1 text-xs text-slate-400">{e.notes}</div>}
                 </div>
                 <div className="flex shrink-0 gap-1">
-                  <button onClick={() => setModal({ emp: e })} className="text-slate-400 hover:text-teal-600" title="Editar">✎</button>
-                  {canDelete && <button onClick={() => remove(e.id)} className="text-slate-400 hover:text-red-600" title="Eliminar">🗑</button>}
+                  <IconButton onClick={() => setModal({ emp: e })} title="Editar">✎</IconButton>
+                  {canDelete && <IconButton onClick={() => remove(e.id)} title="Eliminar" className="text-slate-400 hover:text-red-600">🗑</IconButton>}
                 </div>
               </div>
             </Card>

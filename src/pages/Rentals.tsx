@@ -4,7 +4,7 @@ import { ldb, removeRow, type Unit, type UnitType, type UnitStatus, type RentFre
 import { useBusiness } from '../cloud/business'
 import { usePerms } from '../cloud/perms'
 import { money, formatDate, todayISO, currentMonthKey, monthLabel } from '../lib/format'
-import { Button, Card, Modal, Field, Input, Select, Textarea, EmptyState } from '../components/ui'
+import { Button, Card, Modal, Field, Input, Select, Textarea, EmptyState, IconButton } from '../components/ui'
 
 const TYPE_LABEL: Record<UnitType, string> = { apartment: 'Apartamento', room: 'Habitación', commercial: 'Local', other: 'Otro' }
 const TYPE_ICON: Record<UnitType, string> = { apartment: '🏢', room: '🛏️', commercial: '🏬', other: '🏠' }
@@ -292,9 +292,9 @@ export default function Rentals() {
                     <div className="text-xs text-slate-400">{TYPE_LABEL[u.type]}{vacant ? ' · Vacío' : u.tenantName ? ` · ${u.tenantName}` : ''}</div>
                   </div>
                   <div className="flex shrink-0 gap-1">
-                    <button onClick={() => setHistory(u)} className="text-slate-400 hover:text-teal-600" title="Historial">🕑</button>
-                    <button onClick={() => setModal({ unit: u })} className="text-slate-400 hover:text-teal-600" title="Editar">✎</button>
-                    {canDelete && <button onClick={() => removeUnit(u)} className="text-slate-400 hover:text-red-600" title="Eliminar">🗑</button>}
+                    <IconButton onClick={() => setHistory(u)} title="Historial">🕑</IconButton>
+                    <IconButton onClick={() => setModal({ unit: u })} title="Editar">✎</IconButton>
+                    {canDelete && <IconButton onClick={() => removeUnit(u)} title="Eliminar" className="text-slate-400 hover:text-red-600">🗑</IconButton>}
                   </div>
                 </div>
 

@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { ldb, removeRow, type Contact, type ContactType } from '../cloud/localdb'
 import { useBusiness } from '../cloud/business'
 import { usePerms } from '../cloud/perms'
-import { Button, Card, Modal, Field, Input, Textarea, EmptyState } from '../components/ui'
+import { Button, Card, Modal, Field, Input, Textarea, EmptyState, IconButton } from '../components/ui'
 
 function ContactForm({ existing, onDone }: { existing?: Contact; onDone: () => void }) {
   const [form, setForm] = useState({
@@ -99,8 +99,8 @@ export default function Contacts() {
                   {c.notes && <div className="mt-1 text-xs text-slate-400">{c.notes}</div>}
                 </div>
                 <div className="flex shrink-0 gap-1">
-                  <button onClick={() => setModal({ c })} className="text-slate-400 hover:text-teal-600" title="Editar">✎</button>
-                  {canDelete && <button onClick={() => remove(c.id)} className="text-slate-400 hover:text-red-600" title="Eliminar">🗑</button>}
+                  <IconButton onClick={() => setModal({ c })} title="Editar">✎</IconButton>
+                  {canDelete && <IconButton onClick={() => remove(c.id)} title="Eliminar" className="text-slate-400 hover:text-red-600">🗑</IconButton>}
                 </div>
               </div>
             </Card>

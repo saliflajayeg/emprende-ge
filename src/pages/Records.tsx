@@ -88,7 +88,7 @@ export default function Records() {
             <button
               key={r.id}
               onClick={() => setDetail(r)}
-              className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left shadow-sm transition hover:border-teal-300 hover:shadow"
+              className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left shadow-sm transition-[transform,box-shadow,border-color] duration-100 ease-out hover:border-teal-300 hover:shadow active:scale-[0.98]"
             >
               <div className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-full bg-slate-100 text-xl text-slate-300">
                 {r.photo ? <img src={r.photo} alt={r.name} className="h-full w-full object-cover" /> : '👤'}

@@ -75,9 +75,9 @@ export default function Stock() {
                     </td>
                     <td className="px-4 py-3 text-center">
                       <div className="inline-flex items-center gap-1">
-                        <button onClick={() => adjust(it, -1)} className="grid h-7 w-7 place-items-center rounded bg-slate-100 hover:bg-slate-200">−</button>
-                        <span className={`w-12 text-center font-semibold ${low ? 'text-red-600' : 'text-slate-800'}`}>{moneyPlain(it.stock)}</span>
-                        <button onClick={() => adjust(it, 1)} className="grid h-7 w-7 place-items-center rounded bg-slate-100 hover:bg-slate-200">+</button>
+                        <button onClick={() => adjust(it, -1)} className="grid h-8 w-8 place-items-center rounded-lg bg-slate-100 text-slate-600 transition-transform duration-100 ease-out hover:bg-slate-200 active:scale-90">−</button>
+                        <span className={`ge-nums w-12 text-center font-semibold ${low ? 'text-red-600' : 'text-slate-800'}`}>{moneyPlain(it.stock)}</span>
+                        <button onClick={() => adjust(it, 1)} className="grid h-8 w-8 place-items-center rounded-lg bg-slate-100 text-slate-600 transition-transform duration-100 ease-out hover:bg-slate-200 active:scale-90">+</button>
                         {low && <span title="Stock bajo" className="ml-1">⚠️</span>}
                       </div>
                     </td>

@@ -4,7 +4,7 @@ import { ldb, removeRow, type Item, type ItemKind } from '../cloud/localdb'
 import { useBusiness } from '../cloud/business'
 import { usePerms } from '../cloud/perms'
 import { money, moneyPlain } from '../lib/format'
-import { Button, Card, Modal, Field, Input, Textarea, EmptyState } from '../components/ui'
+import { Button, Card, Modal, Field, Input, Textarea, EmptyState, IconButton } from '../components/ui'
 
 interface CatalogConfig {
   kind: ItemKind
@@ -152,11 +152,13 @@ export default function Catalog({ cfg }: { cfg: CatalogConfig }) {
                       ) : <span className="text-slate-300">—</span>}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-right">
-                      {cfg.kind !== 'ingredient' && (
-                        <button onClick={() => publishToSemu(it)} className="mr-2 text-slate-400 hover:text-teal-600" title="Publicar en Mercado Semu">🏪</button>
-                      )}
-                      <button onClick={() => setModal({ item: it })} className="mr-2 text-slate-400 hover:text-teal-600" title="Editar">✎</button>
-                      {canDelete && <button onClick={() => remove(it.id)} className="text-slate-400 hover:text-red-600" title="Eliminar">🗑</button>}
+                      <div className="flex justify-end gap-0.5">
+                        {cfg.kind !== 'ingredient' && (
+                          <IconButton onClick={() => publishToSemu(it)} title="Publicar en Mercado Semu">🏪</IconButton>
+                        )}
+                        <IconButton onClick={() => setModal({ item: it })} title="Editar">✎</IconButton>
+                        {canDelete && <IconButton onClick={() => remove(it.id)} title="Eliminar" className="text-slate-400 hover:text-red-600">🗑</IconButton>}
+                      </div>
                     </td>
                   </tr>
                 )

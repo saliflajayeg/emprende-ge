@@ -4,7 +4,7 @@ import { ldb, removeRow, type Job, type JobStatus } from '../cloud/localdb'
 import { useBusiness } from '../cloud/business'
 import { usePerms } from '../cloud/perms'
 import { formatDate } from '../lib/format'
-import { Button, Card, Modal, Field, Input, Select, Textarea, EmptyState } from '../components/ui'
+import { Button, Card, Modal, Field, Input, Select, Textarea, EmptyState, IconButton } from '../components/ui'
 
 const STATUS: Record<JobStatus, { label: string; cls: string }> = {
   pending: { label: 'Pendiente', cls: 'bg-amber-50 text-amber-700' },
@@ -136,9 +136,9 @@ export default function Jobs() {
                   </div>
                   {j.notes && <div className="text-xs text-slate-400">{j.notes}</div>}
                 </div>
-                <div className="flex gap-1">
-                  <button onClick={() => setModal({ job: j })} className="rounded p-1 text-slate-400 hover:text-teal-600" title="Editar">✎</button>
-                  {canDelete && <button onClick={() => remove(j.id)} className="rounded p-1 text-slate-400 hover:text-red-600" title="Eliminar">🗑</button>}
+                <div className="flex gap-0.5">
+                  <IconButton onClick={() => setModal({ job: j })} title="Editar">✎</IconButton>
+                  {canDelete && <IconButton onClick={() => remove(j.id)} title="Eliminar" className="text-slate-400 hover:text-red-600">🗑</IconButton>}
                 </div>
               </Card>
             )
