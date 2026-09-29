@@ -37,6 +37,10 @@ export default defineConfig({
         // No cachear la API de Supabase (siempre datos frescos/online)
         navigateFallbackDenylist: [/^\/rest\//, /^\/auth\//],
         cleanupOutdatedCaches: true,
+        // El nuevo service worker toma el control enseguida, para que nadie se
+        // quede con una versión antigua en caché (p. ej. el enlace público de reservas).
+        skipWaiting: true,
+        clientsClaim: true,
       },
     }),
   ],
