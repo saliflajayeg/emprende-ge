@@ -63,3 +63,17 @@ export function shortMonth(ym: string): string {
   const [, m] = ym.split('-').map(Number)
   return MONTHS[m - 1].slice(0, 3)
 }
+
+// Clave del periodo de facturación de un alquiler para el mes 'ym', según su
+// frecuencia (un trimestral comparte clave en sus 3 meses). Compartida entre
+// Alquileres y el Panel para calcular los cobros del periodo.
+export function rentPeriodKey(freq: string, ym: string): string {
+  const [y, m] = ym.split('-').map(Number)
+  switch (freq) {
+    case 'bimonthly': return `${y}-B${Math.ceil(m / 2)}`
+    case 'quarterly': return `${y}-Q${Math.ceil(m / 3)}`
+    case 'semiannual': return `${y}-S${m <= 6 ? 1 : 2}`
+    case 'annual': return `${y}`
+    default: return `${y}-${String(m).padStart(2, '0')}`
+  }
+}

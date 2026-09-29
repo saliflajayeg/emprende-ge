@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { ldb, removeRow, type Unit, type UnitType, type UnitStatus, type RentFreq, type Transaction, type Category } from '../cloud/localdb'
 import { useBusiness } from '../cloud/business'
 import { usePerms } from '../cloud/perms'
-import { money, formatDate, todayISO, currentMonthKey, monthLabel } from '../lib/format'
+import { money, formatDate, todayISO, currentMonthKey, monthLabel, rentPeriodKey } from '../lib/format'
 import { Button, Card, Modal, Field, Input, Select, Textarea, EmptyState, IconButton } from '../components/ui'
 
 const TYPE_LABEL: Record<UnitType, string> = { apartment: 'Apartamento', room: 'Habitación', commercial: 'Local', other: 'Otro' }
@@ -19,18 +19,8 @@ function shiftMonth(period: string, n: number): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
 }
 
-// Clave del periodo de facturación de una unidad para el mes de referencia 'ym',
-// según su frecuencia. Un trimestral comparte clave en sus 3 meses.
-function periodKey(freq: RentFreq, ym: string): string {
-  const [y, m] = ym.split('-').map(Number)
-  switch (freq) {
-    case 'bimonthly': return `${y}-B${Math.ceil(m / 2)}`
-    case 'quarterly': return `${y}-Q${Math.ceil(m / 3)}`
-    case 'semiannual': return `${y}-S${m <= 6 ? 1 : 2}`
-    case 'annual': return `${y}`
-    default: return `${y}-${String(m).padStart(2, '0')}`
-  }
-}
+// Clave del periodo de facturación (compartida con el Panel, en lib/format).
+const periodKey = (freq: RentFreq, ym: string) => rentPeriodKey(freq, ym)
 
 const ORD = ['', '1.º', '2.º', '3.er', '4.º', '5.º', '6.º']
 

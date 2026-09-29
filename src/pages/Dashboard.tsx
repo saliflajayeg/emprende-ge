@@ -10,6 +10,7 @@ import { CashFlowChart, DonutChart } from '../components/charts'
 import TxForm from '../components/TxForm'
 import DayAgenda from '../components/DayAgenda'
 import PendingRequests from '../components/PendingRequests'
+import ActivityCards from '../components/ActivityCards'
 
 export default function Dashboard() {
   const { current } = useBusiness()
@@ -18,6 +19,7 @@ export default function Dashboard() {
   const txs = useLiveQuery(() => (bid ? ldb.transactions.where('businessId').equals(bid).toArray() : []), [bid])
   const categories = useLiveQuery(() => (bid ? ldb.categories.where('businessId').equals(bid).toArray() : []), [bid])
   const [modal, setModal] = useState<null | Kind>(null)
+  const [showMonth, setShowMonth] = useState(false)
 
   if (!txs || !categories) return <div className="text-slate-400">Cargando…</div>
 
@@ -52,18 +54,14 @@ export default function Dashboard() {
 
       <PendingRequests />
 
-      <DayAgenda bid={bid} enabled={enabled} recordsLabel={current?.recordsLabel} />
-
-      <div>
-        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">Resumen del mes · {monthLabel(month)}</h2>
-        <div className="ge-stagger grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <StatCard label="Ingresos del mes" value={money(incomeMonth)} tone="good" />
-          <StatCard label="Gastos del mes" value={money(expenseMonth)} tone="bad" />
-          <StatCard label="Beneficio neto" value={money(net)} tone={net >= 0 ? 'good' : 'bad'} />
-          <StatCard label="Margen" value={`${margin}%`} hint={net >= 0 ? 'Negocio positivo' : 'En pérdidas'} />
-        </div>
+      {/* HOY: lo primero que ve el emprendedor al abrir. Se adapta al negocio. */}
+      <div className="space-y-4">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Hoy</h2>
+        <ActivityCards bid={bid} enabled={enabled} businessType={current?.businessType} recordsLabel={current?.recordsLabel} />
+        <DayAgenda bid={bid} enabled={enabled} recordsLabel={current?.recordsLabel} />
       </div>
 
+      {/* Alertas: siempre visibles (saldo negativo, vencidos…). */}
       {alerts.length > 0 && (
         <div className="space-y-2">
           {alerts.map((a, i) => (
@@ -75,36 +73,58 @@ export default function Dashboard() {
         </div>
       )}
 
-      <Card>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-semibold text-slate-800">Flujo de caja (últimos 6 meses)</h2>
-        </div>
-        <CashFlowChart data={series} />
-      </Card>
+      {/* Resumen del mes: plegable, para no tapar lo del día. */}
+      <div>
+        <button
+          onClick={() => setShowMonth((v) => !v)}
+          className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition-[transform,border-color] duration-100 ease-out hover:border-teal-300 active:scale-[0.99]"
+        >
+          <span className="text-sm font-semibold text-slate-700">📆 Resumen del mes · {monthLabel(month)}</span>
+          <span className={`text-slate-400 transition-transform duration-200 ${showMonth ? 'rotate-180' : ''}`}>▾</span>
+        </button>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <h2 className="mb-3 font-semibold text-slate-800">Gastos por categoría ({monthLabel(month)})</h2>
-          <DonutChart data={expenseCats} />
-        </Card>
-        <Card>
-          <h2 className="mb-3 font-semibold text-slate-800">Cobros y pagos pendientes</h2>
-          {toCollect === 0 && toPay === 0 ? (
-            <EmptyState title="Todo al día" hint="No tienes cobros ni pagos pendientes." />
-          ) : (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between rounded-lg bg-teal-50 px-4 py-3">
-                <span className="text-sm text-teal-800">Por cobrar (clientes)</span>
-                <span className="font-bold text-teal-700">{money(toCollect)}</span>
-              </div>
-              <div className="flex items-center justify-between rounded-lg bg-red-50 px-4 py-3">
-                <span className="text-sm text-red-800">Por pagar (proveedores)</span>
-                <span className="font-bold text-red-600">{money(toPay)}</span>
-              </div>
-              {overdue.length > 0 && <p className="text-xs text-red-500">⚠️ {overdue.length} vencido(s).</p>}
+        {showMonth && (
+          <div className="mt-3 space-y-6">
+            <div className="ge-stagger grid grid-cols-2 gap-3 lg:grid-cols-4">
+              <StatCard label="Ingresos del mes" value={money(incomeMonth)} tone="good" />
+              <StatCard label="Gastos del mes" value={money(expenseMonth)} tone="bad" />
+              <StatCard label="Beneficio neto" value={money(net)} tone={net >= 0 ? 'good' : 'bad'} />
+              <StatCard label="Margen" value={`${margin}%`} hint={net >= 0 ? 'Negocio positivo' : 'En pérdidas'} />
             </div>
-          )}
-        </Card>
+
+            <Card>
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="font-semibold text-slate-800">Flujo de caja (últimos 6 meses)</h2>
+              </div>
+              <CashFlowChart data={series} />
+            </Card>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <Card>
+                <h2 className="mb-3 font-semibold text-slate-800">Gastos por categoría ({monthLabel(month)})</h2>
+                <DonutChart data={expenseCats} />
+              </Card>
+              <Card>
+                <h2 className="mb-3 font-semibold text-slate-800">Cobros y pagos pendientes</h2>
+                {toCollect === 0 && toPay === 0 ? (
+                  <EmptyState title="Todo al día" hint="No tienes cobros ni pagos pendientes." />
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between rounded-lg bg-teal-50 px-4 py-3">
+                      <span className="text-sm text-teal-800">Por cobrar (clientes)</span>
+                      <span className="ge-nums font-bold text-teal-700">{money(toCollect)}</span>
+                    </div>
+                    <div className="flex items-center justify-between rounded-lg bg-red-50 px-4 py-3">
+                      <span className="text-sm text-red-800">Por pagar (proveedores)</span>
+                      <span className="ge-nums font-bold text-red-600">{money(toPay)}</span>
+                    </div>
+                    {overdue.length > 0 && <p className="text-xs text-red-500">⚠️ {overdue.length} vencido(s).</p>}
+                  </div>
+                )}
+              </Card>
+            </div>
+          </div>
+        )}
       </div>
 
       <Modal open={modal !== null} onClose={() => setModal(null)} title={modal === 'income' ? 'Registrar ingreso' : 'Registrar gasto'}>
