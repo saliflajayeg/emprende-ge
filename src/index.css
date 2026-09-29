@@ -22,6 +22,57 @@ html, body {
   max-width: 100%;
 }
 
+/* --- Feel táctil estilo Apple: respuesta instantánea, sin retardo ni flash --- */
+/* Quita el destello azul del toque y el retardo de 300ms en toda la app. */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+button, a, [role="button"] {
+  touch-action: manipulation;
+}
+
+/* Números tabulares: cifras que alinean y no "bailan" al cambiar (caja, totales). */
+.ge-nums {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* Entrada: sube y aparece (rise). Se usa con .ge-stagger para escalonar. */
+@keyframes ge-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.ge-rise { animation: ge-rise 0.42s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+/* Escalona la entrada de los hijos directos (tarjetas de resumen). */
+.ge-stagger > * { animation: ge-rise 0.42s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.ge-stagger > *:nth-child(1) { animation-delay: 0.02s; }
+.ge-stagger > *:nth-child(2) { animation-delay: 0.07s; }
+.ge-stagger > *:nth-child(3) { animation-delay: 0.12s; }
+.ge-stagger > *:nth-child(4) { animation-delay: 0.17s; }
+
+/* Modal: se materializa (velo que se difumina + panel que sube con un leve
+   rebote), en vez de un simple fundido. Solo transform/opacity/backdrop. */
+@keyframes ge-scrim-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes ge-sheet-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.ge-scrim { animation: ge-scrim-in 0.2s ease-out both; }
+/* El leve overshoot (0.34,1.56,…) da el "rebote" físico tras un gesto. */
+.ge-sheet { animation: ge-sheet-in 0.34s cubic-bezier(0.34, 1.4, 0.64, 1) both; }
+
+/* Accesibilidad: con "reduce motion" cambiamos springs/deslizamientos por un
+   fundido corto y sin rebote (equivalente no vestibular). */
+@media (prefers-reduced-motion: reduce) {
+  .ge-rise,
+  .ge-stagger > *,
+  .ge-sheet { animation: ge-scrim-in 0.2s ease-out both; transform: none !important; }
+}
+
 /* Utilidad: ocultar en impresión y al exportar */
 @media print {
   .no-print { display: none !important; }

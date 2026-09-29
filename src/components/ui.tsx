@@ -24,7 +24,7 @@ export function StatCard({
   return (
     <Card>
       <div className="truncate text-xs font-medium uppercase tracking-wide text-slate-500">{label}</div>
-      <div className={`mt-1 break-words text-xl font-bold leading-tight sm:text-2xl ${toneClass}`}>{value}</div>
+      <div className={`ge-nums mt-1 break-words text-xl font-bold leading-tight sm:text-2xl ${toneClass}`}>{value}</div>
       {hint && <div className="mt-1 text-xs text-slate-400">{hint}</div>}
     </Card>
   )
@@ -56,7 +56,7 @@ export function Button({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium transition disabled:opacity-50 ${styles[variant]} ${className}`}
+      className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium transition-[background-color,transform] duration-100 ease-out active:scale-[0.97] disabled:opacity-50 disabled:active:scale-100 ${styles[variant]} ${className}`}
     >
       {children}
     </button>
@@ -108,8 +108,8 @@ export function Modal({
 }) {
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:items-center">
-      <div className="w-full max-w-lg rounded-xl bg-white shadow-xl">
+    <div className="ge-scrim fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 backdrop-blur-sm sm:items-center" onClick={onClose}>
+      <div className="ge-sheet w-full max-w-lg rounded-2xl bg-white shadow-2xl ring-1 ring-black/5" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
           <h3 className="text-base font-semibold text-slate-800">{title}</h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700" aria-label="Cerrar">
