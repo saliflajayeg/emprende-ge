@@ -7,6 +7,7 @@ import { legacySummary, importLegacy, type LegacySummary } from '../cloud/import
 import { fileToDataURL } from '../lib/image'
 import { BUSINESS_TYPES, MODULES, TOGGLEABLE, MODULE_DEPS, modulesFor, withDeps, type ModuleId } from '../modules'
 import { Card, Button, Field, Input, Select } from '../components/ui'
+import { pushState, isSubscribed, enablePush, disablePush, type PushState } from '../lib/push'
 
 const TABLE_LABEL: Record<string, string> = {
   transactions: 'movimientos', contacts: 'contactos', items: 'catálogo', invoices: 'facturas',
@@ -52,6 +53,53 @@ function CatList({
         <Button variant="outline" onClick={onAdd}>Añadir</Button>
       </div>
     </div>
+  )
+}
+
+// Tarjeta de avisos push (a nivel de módulo: estado propio, no afecta al resto).
+function PushCard({ businessId }: { businessId: string }) {
+  const [state, setState] = useState<PushState>('default')
+  const [subscribed, setSubscribed] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  useEffect(() => {
+    setState(pushState())
+    isSubscribed().then(setSubscribed)
+  }, [])
+
+  async function enable() {
+    setBusy(true); setMsg('')
+    const r = await enablePush(businessId)
+    if (r.ok) { setSubscribed(true); setState('granted'); setMsg('✓ Avisos activados en este dispositivo.') }
+    else if (r.reason === 'denied') setMsg('Has bloqueado los avisos. Permítelos en los ajustes del navegador para este sitio.')
+    else if (r.reason === 'unsupported') setMsg('Este navegador no soporta avisos. En iPhone, instala la app en la pantalla de inicio.')
+    else setMsg('No se pudo activar. Inténtalo de nuevo.' + (r.reason ? ` (${r.reason})` : ''))
+    setBusy(false)
+  }
+  async function disable() {
+    setBusy(true); await disablePush(); setSubscribed(false); setMsg('Avisos desactivados en este dispositivo.'); setBusy(false)
+  }
+
+  return (
+    <Card>
+      <h2 className="mb-1 font-semibold text-slate-800">🔔 Avisos de nuevas solicitudes</h2>
+      <p className="mb-3 text-sm text-slate-500">
+        Recibe una notificación cuando un cliente te pida una <b>cita</b> o haga un <b>pedido</b> desde tu enlace,
+        aunque no tengas la app abierta.
+      </p>
+      {state === 'unsupported' ? (
+        <p className="text-sm text-amber-600">
+          Tu navegador no soporta avisos. En iPhone, añade la app a la pantalla de inicio y ábrela desde ahí.
+        </p>
+      ) : subscribed ? (
+        <Button variant="outline" onClick={disable} disabled={busy}>{busy ? 'Un momento…' : 'Desactivar avisos'}</Button>
+      ) : (
+        <Button onClick={enable} disabled={busy}>{busy ? 'Activando…' : '🔔 Activar avisos'}</Button>
+      )}
+      {msg && <p className="mt-2 text-xs text-slate-500">{msg}</p>}
+      <p className="mt-2 text-xs text-slate-400">Debes activarlo en cada dispositivo donde quieras recibir los avisos.</p>
+    </Card>
   )
 }
 
@@ -382,6 +430,8 @@ export default function Settings() {
           )}
         </Card>
       )}
+
+      {current?.id && <PushCard businessId={current.id} />}
 
       <Card>
         <h2 className="mb-1 font-semibold text-slate-800">🔗 Enlace de reservas</h2>

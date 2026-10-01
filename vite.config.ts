@@ -41,6 +41,8 @@ export default defineConfig({
         // quede con una versión antigua en caché (p. ej. el enlace público de reservas).
         skipWaiting: true,
         clientsClaim: true,
+        // Añade el manejo de notificaciones push al SW generado (convive con el offline).
+        importScripts: ['push-sw.js'],
       },
     }),
   ],
