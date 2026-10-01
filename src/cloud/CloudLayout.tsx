@@ -3,8 +3,9 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { navModules, modulesFor, type ModuleId } from '../modules'
 import { useAuth } from './auth'
 import { useBusiness } from './business'
-import { getSyncStatus, onSync, type SyncStatus } from './sync'
+import { getSyncStatus, onSync, syncBusiness, type SyncStatus } from './sync'
 import CreateBusiness from './CreateBusiness'
+import PullToRefresh from '../components/PullToRefresh'
 
 const MAX_BUSINESSES = 5
 
@@ -115,7 +116,11 @@ export default function CloudLayout({ children }: { children: ReactNode }) {
           <SyncBadge />
         </header>
 
-        <main className="min-w-0 flex-1 p-4 sm:p-6">{children}</main>
+        <main className="min-w-0 flex-1 p-4 sm:p-6">
+          <PullToRefresh onRefresh={async () => { if (current?.id) await syncBusiness(current.id) }}>
+            {children}
+          </PullToRefresh>
+        </main>
 
         <footer className="border-t border-slate-200 bg-white px-4 py-6">
           <div className="mx-auto flex max-w-md flex-col items-center gap-2 text-center">

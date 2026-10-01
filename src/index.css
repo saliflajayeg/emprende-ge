@@ -93,6 +93,12 @@ button, a, [role="button"] {
   .ge-drawer-out { animation: ge-scrim-out 0.2s ease-in both; transform: none !important; }
 }
 
+/* Giro del indicador de "deslizar para refrescar" */
+@keyframes ge-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
 /* Utilidad: ocultar en impresión y al exportar */
 @media print {
   .no-print { display: none !important; }
