@@ -68,6 +68,10 @@ export default function CloudLayout({ children }: { children: ReactNode }) {
     }))
   if (isAdmin) NAV.push({ to: '/admin', label: 'Admin', icon: '🛡️' })
 
+  // Barra inferior (móvil): hasta 4 accesos directos + "Más" (como Facebook).
+  // "Más" abre el cajón con el resto de secciones, cambiar de negocio y cerrar sesión.
+  const bottomNav = NAV.slice(0, 4)
+
   // Cabecera: logo del negocio si lo tiene; si no, la marca GEmprende
   const brandLogo = current?.logo || '/logo-mark.png'
   const brandName = current?.logo ? current?.name || 'Mi negocio' : 'GEmprende'
@@ -108,9 +112,8 @@ export default function CloudLayout({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden pb-16 md:pb-0">
         <header className="sticky top-0 z-30 flex items-center gap-2 border-b border-slate-200/70 bg-white/80 px-3 py-3 backdrop-blur-md md:hidden">
-          <button onClick={() => setOpen(true)} className="shrink-0 rounded-lg p-2 text-lg transition-transform duration-100 ease-out hover:bg-slate-100 active:scale-90" aria-label="Menú">☰</button>
           <img src={brandLogo} alt={brandName} className={`h-8 w-8 shrink-0 rounded-lg ${logoFit}`} />
           <span className="min-w-0 flex-1 truncate font-bold text-slate-800">{brandName}</span>
           <SyncBadge />
@@ -140,6 +143,35 @@ export default function CloudLayout({ children }: { children: ReactNode }) {
           </div>
         </footer>
       </div>
+
+      {/* Barra de navegación inferior (solo móvil), estilo Facebook */}
+      <nav
+        className="fixed inset-x-0 bottom-0 z-40 flex border-t border-slate-200 bg-white/95 backdrop-blur-md md:hidden"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
+        {bottomNav.map((n) => (
+          <NavLink
+            key={n.to}
+            to={n.to}
+            end={n.end}
+            className={({ isActive }) =>
+              `flex min-w-0 flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium transition-transform duration-100 ease-out active:scale-90 ${
+                isActive ? 'text-teal-600' : 'text-slate-400'
+              }`
+            }
+          >
+            <span className="text-lg leading-none">{n.icon}</span>
+            <span className="max-w-full truncate px-1">{n.label}</span>
+          </NavLink>
+        ))}
+        <button
+          onClick={() => setOpen(true)}
+          className="flex min-w-0 flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium text-slate-400 transition-transform duration-100 ease-out active:scale-90"
+        >
+          <span className="text-lg leading-none">☰</span>
+          <span>Más</span>
+        </button>
+      </nav>
 
       {open && (
         <div className="fixed inset-0 z-50 md:hidden">
