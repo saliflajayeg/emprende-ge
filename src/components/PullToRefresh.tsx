@@ -2,8 +2,10 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 // Deslizar hacia abajo para refrescar (como en redes sociales). Solo se activa
 // cuando la página está arriba del todo. Llama a onRefresh (p. ej. sincronizar).
-const THRESHOLD = 70 // px que hay que tirar para disparar el refresco
-const MAX = 110 // tope visual del tirón
+const DEADZONE = 24 // px iniciales que se ignoran (para no reaccionar a un desliz normal)
+const THRESHOLD = 110 // "altura" del tirón necesaria para disparar el refresco (tirón fuerte)
+const MAX = 150 // tope visual del tirón
+const FOLLOW = 0.5 // resistencia: el indicador avanza la mitad de lo que mueve el dedo
 
 export default function PullToRefresh({ onRefresh, children }: { onRefresh: () => Promise<void>; children: ReactNode }) {
   const [dist, setDist] = useState(0)
@@ -24,9 +26,10 @@ export default function PullToRefresh({ onRefresh, children }: { onRefresh: () =
     const onMove = (e: TouchEvent) => {
       if (!active.current || startY.current === null) return
       const dy = e.touches[0].clientY - startY.current
-      if (dy > 0 && window.scrollY <= 0) {
+      // Solo cuenta a partir de la zona muerta: así un desliz normal no lo activa.
+      if (dy > DEADZONE && window.scrollY <= 0) {
         // Resistencia: cuanto más tiras, menos avanza (sensación física).
-        const d = Math.min(MAX, dy * 0.5)
+        const d = Math.min(MAX, (dy - DEADZONE) * FOLLOW)
         setDist(d)
         if (d > 4 && e.cancelable) e.preventDefault() // evita el rebote nativo
       } else {
@@ -61,6 +64,7 @@ export default function PullToRefresh({ onRefresh, children }: { onRefresh: () =
 
   const progress = Math.min(1, dist / THRESHOLD)
   const show = dist > 0 || refreshing
+  const ready = dist >= THRESHOLD || refreshing // tirón suficiente: listo para soltar
 
   return (
     <>
@@ -69,9 +73,10 @@ export default function PullToRefresh({ onRefresh, children }: { onRefresh: () =
         className="pointer-events-none fixed inset-x-0 top-0 z-40 flex justify-center"
         style={{ transform: `translateY(${show ? Math.max(8, dist - 28) : -40}px)`, transition: active.current ? 'none' : 'transform 0.2s ease-out', opacity: show ? 1 : 0 }}
       >
-        <div className="grid h-9 w-9 place-items-center rounded-full bg-white shadow-md ring-1 ring-black/5">
+        {/* Cuando el tirón es suficiente, el círculo se pone verde: "suelta para actualizar". */}
+        <div className={`grid h-9 w-9 place-items-center rounded-full shadow-md ring-1 ring-black/5 transition-colors ${ready ? 'bg-teal-600' : 'bg-white'}`}>
           <span
-            className="text-teal-600"
+            className={ready ? 'text-white' : 'text-slate-400'}
             style={{
               display: 'inline-block',
               transform: `rotate(${refreshing ? 0 : progress * 270}deg)`,
