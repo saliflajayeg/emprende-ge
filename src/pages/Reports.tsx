@@ -6,7 +6,7 @@ import { money, monthLabel, currentMonthKey, monthKey } from '../lib/format'
 import { sumIn, byCategory, monthlySeries } from '../lib/analytics'
 import { reportPDF, type PdfBusiness } from '../lib/pdf'
 import { downloadCSV } from '../lib/csv'
-import { Card, Button, Select, StatCard } from '../components/ui'
+import { Card, Button, Select, Input, StatCard } from '../components/ui'
 import { DonutChart, CashFlowChart } from '../components/charts'
 
 type Scope = 'month' | 'year' | 'all'
@@ -17,16 +17,17 @@ export default function Reports() {
   const txs = useLiveQuery(() => (bid ? ldb.transactions.where('businessId').equals(bid).toArray() : []), [bid])
   const categories = useLiveQuery(() => (bid ? ldb.categories.where('businessId').equals(bid).toArray() : []), [bid])
   const [scope, setScope] = useState<Scope>('month')
+  const [m, setM] = useState(currentMonthKey())
 
   const filtered = useMemo(() => {
     if (!txs) return []
     const now = new Date()
     return txs.filter((t) => {
-      if (scope === 'month') return monthKey(t.date) === currentMonthKey()
+      if (scope === 'month') return monthKey(t.date) === m
       if (scope === 'year') return t.date.startsWith(String(now.getFullYear()))
       return true
     })
-  }, [txs, scope])
+  }, [txs, scope, m])
 
   if (!txs || !categories) return <div className="text-slate-400">Cargando…</div>
 
@@ -45,7 +46,7 @@ export default function Reports() {
   const monthly = monthlySeries(filtered, yearMonths).filter((m) => m.income || m.expense)
 
   const periodLabel =
-    scope === 'month' ? monthLabel(currentMonthKey())
+    scope === 'month' ? monthLabel(m)
       : scope === 'year' ? `Año ${new Date().getFullYear()}`
       : 'Histórico completo'
 
@@ -93,13 +94,18 @@ export default function Reports() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-slate-800">Informes</h1>
         <div className="flex flex-wrap gap-2">
-          <div className="w-36">
+          <div className="w-32">
             <Select value={scope} onChange={(e) => setScope(e.target.value as Scope)}>
-              <option value="month">Este mes</option>
+              <option value="month">Por mes</option>
               <option value="year">Este año</option>
               <option value="all">Todo</option>
             </Select>
           </div>
+          {scope === 'month' && (
+            <div className="w-40">
+              <Input type="month" value={m} max={currentMonthKey()} onChange={(e) => setM(e.target.value || currentMonthKey())} />
+            </div>
+          )}
           <Button variant="outline" onClick={exportCSV}>⬇ Excel/CSV</Button>
           <Button onClick={exportPDF}>⬇ PDF</Button>
         </div>

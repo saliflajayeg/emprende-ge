@@ -3,9 +3,10 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { ldb, removeRow, type Unit, type UnitType, type UnitStatus, type RentFreq, type Transaction, type Category } from '../cloud/localdb'
 import { useBusiness } from '../cloud/business'
 import { usePerms } from '../cloud/perms'
-import { money, formatDate, todayISO, currentMonthKey, monthLabel, rentPeriodKey } from '../lib/format'
+import { money, formatDate, todayISO, currentMonthKey, monthLabel, rentPeriodKey, rentPeriodStart } from '../lib/format'
 import { Button, Card, Modal, Field, Input, Select, Textarea, EmptyState, IconButton } from '../components/ui'
 import { rentalsReportPDF, type PdfBusiness, type RentalsReport } from '../lib/pdf'
+import { shareRentalsReport } from '../lib/share'
 
 const TYPE_LABEL: Record<UnitType, string> = { apartment: 'Apartamento', room: 'Habitación', commercial: 'Local', other: 'Otro' }
 const TYPE_ICON: Record<UnitType, string> = { apartment: '🏢', room: '🛏️', commercial: '🏬', other: '🏠' }
@@ -180,8 +181,16 @@ export default function Rentals() {
   const paymentFor = (u: Unit) => txs.find((t) => t.unitId === u.id && t.period === unitPeriod(u))
 
   const occupied = units.filter((u) => u.status === 'occupied')
-  const expected = occupied.reduce((s, u) => s + (u.rent || 0), 0)
-  const collected = occupied.reduce((s, u) => { const p = paymentFor(u); return s + (p ? p.amount : 0) }, 0)
+  // La renta se "debe" en el primer mes de su periodo (un trimestral: solo enero
+  // de ene-feb-mar). Así febrero/marzo salen "pagado" sin volver a sumar el importe.
+  const dueThisMonth = (u: Unit) => rentPeriodStart(u.frequency ?? 'monthly', period) === period
+  const expected = occupied.filter(dueThisMonth).reduce((s, u) => s + (u.rent || 0), 0)
+  // Cobrado = pagos cuyo cobro REAL ocurrió este mes (no se cuenta en los meses
+  // que el periodo ya cubre).
+  const collected = occupied.reduce((s, u) => {
+    const p = paymentFor(u)
+    return s + (p && p.date.slice(0, 7) === period ? p.amount : 0)
+  }, 0)
   const pending = Math.max(0, expected - collected)
 
   async function ensureRentCategory(): Promise<string | undefined> {
@@ -232,16 +241,18 @@ export default function Rentals() {
     if (confirm(`¿Eliminar "${u.name}"? Su historial de pagos quedará sin unidad asignada.`)) await removeRow('units', u.id)
   }
 
-  // Informe mensual en PDF: cobros por inquilino, gastos del mes y la diferencia.
-  function generateReport() {
+  // Informe mensual: cobros REALES del mes (los pagos trimestrales solo cuentan
+  // en el mes en que se cobraron), gastos del mes y la diferencia.
+  function buildReport(): { report: RentalsReport; biz: PdfBusiness } {
     const catName = (id?: string) => (categories ?? []).find((c) => c.id === id)?.name
-    const collectedRows = sorted
-      .map((u) => {
-        const p = paymentFor(u)
-        return p ? { unit: u.name, tenant: u.tenantName || '', date: p.date, amount: p.amount } : null
-      })
-      .filter((x): x is { unit: string; tenant: string; date: string; amount: number } => !!x)
+    const unitById = new Map((units ?? []).map((u) => [u.id, u]))
+    const collectedRows = (txs ?? [])
+      .filter((t) => !!t.unitId && t.kind === 'income' && t.date.slice(0, 7) === period)
       .sort((a, b) => a.date.localeCompare(b.date))
+      .map((t) => {
+        const u = t.unitId ? unitById.get(t.unitId) : undefined
+        return { unit: u?.name ?? 'Unidad', tenant: u?.tenantName ?? '', date: t.date, amount: t.amount }
+      })
     const expenseRows = (txs ?? [])
       .filter((t) => t.kind === 'expense' && t.date.slice(0, 7) === period)
       .sort((a, b) => a.date.localeCompare(b.date))
@@ -261,7 +272,16 @@ export default function Rentals() {
       currency: current?.currency ?? 'XAF',
       logo: current?.logo ?? null,
     }
+    return { report, biz }
+  }
+
+  function downloadReport() {
+    const { report, biz } = buildReport()
     rentalsReportPDF(report, biz)
+  }
+  async function sendReport() {
+    const { report, biz } = buildReport()
+    await shareRentalsReport(report, biz)
   }
 
   return (
@@ -299,7 +319,10 @@ export default function Rentals() {
       </Card>
       <p className="-mt-2 text-xs text-slate-400">Se muestra el pago que corresponde a cada unidad según su frecuencia en {monthLabel(period)}.</p>
 
-      <Button variant="outline" onClick={generateReport} className="w-full">📄 Generar informe del mes (PDF)</Button>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" onClick={downloadReport} className="flex-1">📄 Informe del mes (PDF)</Button>
+        <Button onClick={sendReport} className="flex-1 !bg-[#25D366] hover:!bg-[#1ebe5b]">📲 Enviar por WhatsApp</Button>
+      </div>
 
       {units.length === 0 ? (
         <EmptyState title="Sin unidades" hint="Añade tu primer apartamento, habitación o local." />

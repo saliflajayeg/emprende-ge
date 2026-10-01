@@ -77,3 +77,19 @@ export function rentPeriodKey(freq: string, ym: string): string {
     default: return `${y}-${String(m).padStart(2, '0')}`
   }
 }
+
+// Primer mes ('YYYY-MM') del periodo de facturación que contiene 'ym'. La renta
+// se considera "debida" en ese mes (un trimestral: enero cubre ene-feb-mar, así
+// que solo enero cuenta el importe; febrero y marzo salen "pagado" sin volver a sumar).
+export function rentPeriodStart(freq: string, ym: string): string {
+  const [y, m] = ym.split('-').map(Number)
+  let startM = m
+  switch (freq) {
+    case 'bimonthly': startM = m - ((m - 1) % 2); break
+    case 'quarterly': startM = m - ((m - 1) % 3); break
+    case 'semiannual': startM = m <= 6 ? 1 : 7; break
+    case 'annual': startM = 1; break
+    default: startM = m
+  }
+  return `${y}-${String(startM).padStart(2, '0')}`
+}
