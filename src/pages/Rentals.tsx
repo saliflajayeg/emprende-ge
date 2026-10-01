@@ -5,6 +5,7 @@ import { useBusiness } from '../cloud/business'
 import { usePerms } from '../cloud/perms'
 import { money, formatDate, todayISO, currentMonthKey, monthLabel, rentPeriodKey } from '../lib/format'
 import { Button, Card, Modal, Field, Input, Select, Textarea, EmptyState, IconButton } from '../components/ui'
+import { rentalsReportPDF, type PdfBusiness, type RentalsReport } from '../lib/pdf'
 
 const TYPE_LABEL: Record<UnitType, string> = { apartment: 'Apartamento', room: 'Habitación', commercial: 'Local', other: 'Otro' }
 const TYPE_ICON: Record<UnitType, string> = { apartment: '🏢', room: '🛏️', commercial: '🏬', other: '🏠' }
@@ -231,6 +232,38 @@ export default function Rentals() {
     if (confirm(`¿Eliminar "${u.name}"? Su historial de pagos quedará sin unidad asignada.`)) await removeRow('units', u.id)
   }
 
+  // Informe mensual en PDF: cobros por inquilino, gastos del mes y la diferencia.
+  function generateReport() {
+    const catName = (id?: string) => (categories ?? []).find((c) => c.id === id)?.name
+    const collectedRows = sorted
+      .map((u) => {
+        const p = paymentFor(u)
+        return p ? { unit: u.name, tenant: u.tenantName || '', date: p.date, amount: p.amount } : null
+      })
+      .filter((x): x is { unit: string; tenant: string; date: string; amount: number } => !!x)
+      .sort((a, b) => a.date.localeCompare(b.date))
+    const expenseRows = (txs ?? [])
+      .filter((t) => t.kind === 'expense' && t.date.slice(0, 7) === period)
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map((t) => ({ concept: t.description || catName(t.categoryId) || 'Gasto', date: t.date, amount: t.amount }))
+    const report: RentalsReport = {
+      periodLabel: monthLabel(period),
+      collected: collectedRows,
+      expenses: expenseRows,
+      totalCollected: collectedRows.reduce((s, x) => s + x.amount, 0),
+      totalExpense: expenseRows.reduce((s, x) => s + x.amount, 0),
+    }
+    const biz: PdfBusiness = {
+      businessName: current?.name ?? 'Mi negocio',
+      sector: current?.sector,
+      address: current?.address,
+      phone: current?.phone,
+      currency: current?.currency ?? 'XAF',
+      logo: current?.logo ?? null,
+    }
+    rentalsReportPDF(report, biz)
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -265,6 +298,8 @@ export default function Rentals() {
         </div>
       </Card>
       <p className="-mt-2 text-xs text-slate-400">Se muestra el pago que corresponde a cada unidad según su frecuencia en {monthLabel(period)}.</p>
+
+      <Button variant="outline" onClick={generateReport} className="w-full">📄 Generar informe del mes (PDF)</Button>
 
       {units.length === 0 ? (
         <EmptyState title="Sin unidades" hint="Añade tu primer apartamento, habitación o local." />

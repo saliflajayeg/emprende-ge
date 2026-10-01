@@ -23,6 +23,7 @@ export function invoiceTotals(inv: { items: { qty: number; price: number }[]; ta
 const TEAL: [number, number, number] = [13, 148, 136]
 const DARK: [number, number, number] = [15, 23, 42]
 const GRAY: [number, number, number] = [100, 116, 139]
+const RED: [number, number, number] = [220, 38, 38]
 
 function header(doc: jsPDF, s: PdfBusiness, title: string) {
   doc.setFillColor(...TEAL)
@@ -255,6 +256,111 @@ export function reportPDF(r: ReportData, s: PdfBusiness) {
   doc.text('Informe generado con GEmprende', 105, 288, { align: 'center' })
 
   doc.save(`Informe-${r.periodLabel.replace(/\s+/g, '-')}.pdf`)
+}
+
+// Informe mensual de alquileres: cobros por inquilino, gastos y la diferencia.
+export interface RentalsReport {
+  periodLabel: string
+  collected: { unit: string; tenant: string; date: string; amount: number }[]
+  expenses: { concept: string; date: string; amount: number }[]
+  totalCollected: number
+  totalExpense: number
+}
+
+function buildRentalsReportDoc(r: RentalsReport, s: PdfBusiness): { doc: jsPDF; filename: string } {
+  const doc = new jsPDF()
+  const cur = s.currency
+  header(doc, s, 'ALQUILERES')
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  doc.setTextColor(...GRAY)
+  doc.text('Informe mensual', 196, 28, { align: 'right' })
+  doc.text(r.periodLabel, 196, 33, { align: 'right' })
+
+  const net = r.totalCollected - r.totalExpense
+
+  // Resumen
+  autoTable(doc, {
+    startY: 50,
+    body: [
+      ['Cobrado', `${moneyPlain(r.totalCollected)} ${cur}`],
+      ['Gastos', `${moneyPlain(r.totalExpense)} ${cur}`],
+      ['Diferencia (ingresos − gastos)', `${moneyPlain(net)} ${cur}`],
+    ],
+    theme: 'plain',
+    columnStyles: {
+      0: { fontStyle: 'bold', textColor: DARK },
+      1: { halign: 'right', textColor: net >= 0 ? TEAL : [220, 38, 38] },
+    },
+    styles: { fontSize: 12 },
+  })
+
+  // @ts-expect-error runtime
+  let y = doc.lastAutoTable.finalY + 6
+
+  // Cobros del mes (inquilino + importe)
+  autoTable(doc, {
+    startY: y,
+    head: [['Unidad', 'Inquilino', 'Fecha', 'Importe']],
+    body: r.collected.length
+      ? r.collected.map((c) => [c.unit, c.tenant || '—', formatDate(c.date), `${moneyPlain(c.amount)} ${cur}`])
+      : [['—', 'Sin cobros este mes', '', '']],
+    foot: r.collected.length ? [['', '', 'Total cobrado', `${moneyPlain(r.totalCollected)} ${cur}`]] : undefined,
+    headStyles: { fillColor: TEAL },
+    footStyles: { fillColor: [240, 253, 250], textColor: DARK, fontStyle: 'bold' },
+    columnStyles: { 2: { halign: 'right' }, 3: { halign: 'right' } },
+    styles: { fontSize: 9 },
+  })
+
+  // @ts-expect-error runtime
+  y = doc.lastAutoTable.finalY + 6
+
+  // Gastos del mes
+  autoTable(doc, {
+    startY: y,
+    head: [['Concepto', 'Fecha', 'Importe']],
+    body: r.expenses.length
+      ? r.expenses.map((e) => [e.concept, formatDate(e.date), `${moneyPlain(e.amount)} ${cur}`])
+      : [['Sin gastos este mes', '', '']],
+    foot: r.expenses.length ? [['', 'Total gastos', `${moneyPlain(r.totalExpense)} ${cur}`]] : undefined,
+    headStyles: { fillColor: [239, 68, 68] },
+    footStyles: { fillColor: [254, 242, 242], textColor: DARK, fontStyle: 'bold' },
+    columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' } },
+    styles: { fontSize: 9 },
+  })
+
+  // @ts-expect-error runtime
+  y = doc.lastAutoTable.finalY + 10
+  if (y > 270) { doc.addPage(); y = 20 }
+  doc.setDrawColor(...TEAL)
+  doc.line(120, y, 196, y)
+  y += 7
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(13)
+  doc.setTextColor(...(net >= 0 ? TEAL : RED))
+  doc.text('DIFERENCIA', 120, y)
+  doc.text(`${moneyPlain(net)} ${cur}`, 196, y, { align: 'right' })
+
+  const pages = doc.getNumberOfPages()
+  for (let p = 1; p <= pages; p++) {
+    doc.setPage(p)
+    doc.setFontSize(8)
+    doc.setTextColor(...GRAY)
+    doc.text(`Informe de alquileres · ${s.businessName} · GEmprende`, 105, 291, { align: 'center' })
+  }
+
+  return { doc, filename: `Alquileres-${r.periodLabel.replace(/\s+/g, '-')}.pdf` }
+}
+
+export function rentalsReportPDF(r: RentalsReport, s: PdfBusiness) {
+  const { doc, filename } = buildRentalsReportDoc(r, s)
+  doc.save(filename)
+}
+
+export function rentalsReportPDFFile(r: RentalsReport, s: PdfBusiness): File {
+  const { doc, filename } = buildRentalsReportDoc(r, s)
+  return new File([doc.output('blob')], filename, { type: 'application/pdf' })
 }
 
 // Expediente completo de una ficha: foto, datos y toda la bitácora de seguimiento.
