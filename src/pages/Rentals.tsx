@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { ldb, removeRow, type Unit, type UnitType, type UnitStatus, type RentFreq, type Transaction, type Category } from '../cloud/localdb'
 import { useBusiness } from '../cloud/business'
 import { usePerms } from '../cloud/perms'
-import { money, formatDate, todayISO, currentMonthKey, monthLabel, rentPeriodKey, rentPeriodStart } from '../lib/format'
+import { money, formatDate, todayISO, currentMonthKey, monthLabel } from '../lib/format'
 import { Button, Card, Modal, Field, Input, Select, Textarea, EmptyState, IconButton } from '../components/ui'
 import { rentalsReportPDF, type PdfBusiness, type RentalsReport } from '../lib/pdf'
 import { shareRentalsReport } from '../lib/share'
@@ -21,8 +21,10 @@ function shiftMonth(period: string, n: number): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
 }
 
-// Clave del periodo de facturación (compartida con el Panel, en lib/format).
-const periodKey = (freq: RentFreq, ym: string) => rentPeriodKey(freq, ym)
+// Meses que cubre cada frecuencia de pago (trimestral = 3 meses seguidos).
+const SPAN: Record<RentFreq, number> = { monthly: 1, bimonthly: 2, quarterly: 3, semiannual: 6, annual: 12 }
+const mIdx = (ym: string) => { const [y, m] = ym.split('-').map(Number); return y * 12 + (m - 1) }
+const ymFromIdx = (i: number) => `${Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, '0')}`
 
 const ORD = ['', '1.º', '2.º', '3.er', '4.º', '5.º', '6.º']
 
@@ -176,21 +178,31 @@ export default function Rentals() {
   if (!units || !txs) return <div className="text-slate-400">Cargando…</div>
 
   const sorted = [...units].sort((a, b) => (a.status === b.status ? a.name.localeCompare(b.name) : a.status === 'occupied' ? -1 : 1))
-  // El periodo de cada unidad depende de su frecuencia y del mes de referencia.
-  const unitPeriod = (u: Unit) => periodKey(u.frequency ?? 'monthly', period)
-  const paymentFor = (u: Unit) => txs.find((t) => t.unitId === u.id && t.period === unitPeriod(u))
+
+  // --- Cobertura por fecha ---
+  // Un pago cubre SPAN meses seguidos a partir del mes en que se pagó. Si un
+  // trimestral paga en octubre, oct/nov/dic salen "pagado" automáticamente y no
+  // se vuelve a cobrar hasta enero. El mes de inicio es el guardado en `period`
+  // (YYYY-MM); para pagos antiguos se usa la fecha del pago.
+  const payStart = (t: Transaction) => (t.period && /^\d{4}-\d{2}$/.test(t.period) ? t.period : t.date.slice(0, 7))
+  const covers = (u: Unit, t: Transaction, ym: string) => {
+    const start = mIdx(payStart(t))
+    const i = mIdx(ym)
+    return i >= start && i < start + SPAN[u.frequency ?? 'monthly']
+  }
+  // Pago que cubre el mes mostrado (estado "pagado" de la tarjeta).
+  const paymentFor = (u: Unit) => txs.find((t) => t.unitId === u.id && t.kind === 'income' && covers(u, t, period))
+  // ¿Ya lo cubre un pago de un mes ANTERIOR? Entonces no se debe nada este mes.
+  const coveredByPrior = (u: Unit) =>
+    txs.some((t) => t.unitId === u.id && t.kind === 'income' && mIdx(payStart(t)) < mIdx(period) && covers(u, t, period))
 
   const occupied = units.filter((u) => u.status === 'occupied')
-  // La renta se "debe" en el primer mes de su periodo (un trimestral: solo enero
-  // de ene-feb-mar). Así febrero/marzo salen "pagado" sin volver a sumar el importe.
-  const dueThisMonth = (u: Unit) => rentPeriodStart(u.frequency ?? 'monthly', period) === period
-  const expected = occupied.filter(dueThisMonth).reduce((s, u) => s + (u.rent || 0), 0)
-  // Cobrado = pagos cuyo cobro REAL ocurrió este mes (no se cuenta en los meses
-  // que el periodo ya cubre).
-  const collected = occupied.reduce((s, u) => {
-    const p = paymentFor(u)
-    return s + (p && p.date.slice(0, 7) === period ? p.amount : 0)
-  }, 0)
+  // Se "debe" este mes solo si NO lo cubre ya un pago anterior.
+  const expected = occupied.filter((u) => !coveredByPrior(u)).reduce((s, u) => s + (u.rent || 0), 0)
+  // Cobrado = pagos de alquiler recibidos este mes.
+  const collected = txs
+    .filter((t) => t.kind === 'income' && !!t.unitId && t.date.slice(0, 7) === period && occupied.some((u) => u.id === t.unitId))
+    .reduce((s, t) => s + t.amount, 0)
   const pending = Math.max(0, expected - collected)
 
   async function ensureRentCategory(): Promise<string | undefined> {
@@ -201,14 +213,17 @@ export default function Rentals() {
 
   async function markPaid(unit: Unit) {
     const catId = await ensureRentCategory()
+    // Fecha real del pago: hoy si estamos en el mes actual; si no, el mes que se ve.
+    // El pago cubre desde este mes los SPAN meses de su frecuencia.
+    const payDate = period === currentMonthKey() ? todayISO() : `${period}-01`
     await ldb.transactions.add({
       kind: 'income',
-      date: todayISO(),
+      date: payDate,
       amount: unit.rent || 0,
       description: `Renta · ${unit.name}${unit.tenantName ? ` (${unit.tenantName})` : ''}`,
       categoryId: catId,
       unitId: unit.id,
-      period: unitPeriod(unit),
+      period, // mes de inicio de cobertura (YYYY-MM)
       status: 'paid',
       paymentMethod: 'Efectivo',
       createdAt: new Date().toISOString(),
@@ -225,7 +240,9 @@ export default function Rentals() {
     const rent = money(unit.rent)
     const name = unit.tenantName || ''
     const biz = current?.name || ''
-    const perLabel = (locale: string) => (!unit.frequency || unit.frequency === 'monthly' ? monthIn(period, locale) : labelPeriodKey(unitPeriod(unit)))
+    const span = SPAN[unit.frequency ?? 'monthly']
+    const perLabel = (locale: string) =>
+      span > 1 ? `${monthIn(period, locale)} – ${monthIn(ymFromIdx(mIdx(period) + span - 1), locale)}` : monthIn(period, locale)
     const es = perLabel('es-ES'), fr = perLabel('fr-FR'), en = perLabel('en-US')
     const msg =
       `Hola ${name}, le recordamos amablemente el pago del alquiler de "${unit.name}" correspondiente a ${es}: ${rent}. Gracias.\n\n` +
@@ -317,7 +334,7 @@ export default function Rentals() {
           <div className="break-words text-sm font-bold leading-tight text-slate-700 sm:text-lg">{money(expected)}</div>
         </div>
       </Card>
-      <p className="-mt-2 text-xs text-slate-400">Se muestra el pago que corresponde a cada unidad según su frecuencia en {monthLabel(period)}.</p>
+      <p className="-mt-2 text-xs text-slate-400">Un pago cubre toda su frecuencia: un trimestral pagado una vez sale como «pagado» esos 3 meses y no se vuelve a cobrar hasta el siguiente periodo.</p>
 
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" onClick={downloadReport} className="flex-1">📄 Informe del mes (PDF)</Button>
@@ -332,6 +349,7 @@ export default function Rentals() {
             const pay = paymentFor(u)
             const vacant = u.status === 'vacant'
             const freq = u.frequency ?? 'monthly'
+            const coverEndYm = pay ? ymFromIdx(mIdx(payStart(pay)) + SPAN[freq] - 1) : null
             return (
               <Card key={u.id}>
                 <div className="flex items-start justify-between">
@@ -347,13 +365,15 @@ export default function Rentals() {
                 </div>
 
                 <div className="mt-2 text-lg font-bold text-slate-700">{money(u.rent)}<span className="text-xs font-normal text-slate-400"> / {FREQ_UNIT[freq]}</span></div>
-                {!vacant && <div className="text-xs text-slate-400">{FREQ_LABEL[freq]} · {labelPeriodKey(unitPeriod(u))}</div>}
+                {!vacant && <div className="text-xs text-slate-400">{FREQ_LABEL[freq]}</div>}
 
                 {vacant ? (
                   <div className="mt-3 rounded-lg bg-slate-50 py-2 text-center text-sm text-slate-400">Sin inquilino</div>
                 ) : pay ? (
                   <div className="mt-3 flex items-center justify-between rounded-lg bg-teal-50 px-3 py-2">
-                    <span className="text-sm font-medium text-teal-700">✓ Pagado · {formatDate(pay.date)}</span>
+                    <span className="text-sm font-medium text-teal-700">
+                      ✓ Pagado{freq !== 'monthly' && coverEndYm ? ` · cubre hasta ${monthLabel(coverEndYm)}` : ` · ${formatDate(pay.date)}`}
+                    </span>
                     {canDelete && <button onClick={() => unmark(u)} className="text-xs text-teal-600 hover:underline">Anular</button>}
                   </div>
                 ) : (
