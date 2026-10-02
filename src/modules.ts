@@ -80,7 +80,7 @@ export function withDeps(ids: ModuleId[]): ModuleId[] {
 export type BusinessType =
   | 'salon' | 'restaurant' | 'foodstall' | 'shop' | 'technician' | 'professional'
   | 'rentals' | 'school' | 'ngo' | 'shelter' | 'agro' | 'transport' | 'health'
-  | 'personal' | 'other'
+  | 'laundry' | 'personal' | 'other'
 
 export interface BusinessTypeDef {
   id: BusinessType
@@ -103,13 +103,14 @@ export const BUSINESS_TYPES: BusinessTypeDef[] = [
   { id: 'health', label: 'Clínica / Consultorio', icon: '🩺', modules: ['appointments', 'records', 'invoices', 'expenses'] },
   { id: 'agro', label: 'Agricultura / Ganadería', icon: '🌾', modules: ['sales', 'products', 'stock', 'expenses'] },
   { id: 'transport', label: 'Transporte / Taxi', icon: '🚗', modules: ['services', 'clients', 'sales', 'expenses'] },
+  { id: 'laundry', label: 'Lavandería', icon: '🧺', modules: ['services', 'clients', 'sales', 'expenses', 'jobs'] },
   { id: 'personal', label: 'Personal / Mis cuentas', icon: '🙋', modules: ['transactions', 'debts', 'collections'] },
   { id: 'other', label: 'Otro / General', icon: '🏢', modules: ['sales', 'expenses', 'invoices', 'clients', 'records'] },
 ]
 
 // Tipos de negocio con "gasto rápido" (interfaz sencilla, sin jerga contable):
 // puestos de comida, tiendas y cuentas personales.
-export const QUICK_EXPENSE_TYPES: BusinessType[] = ['foodstall', 'shop', 'personal']
+export const QUICK_EXPENSE_TYPES: BusinessType[] = ['foodstall', 'shop', 'personal', 'laundry']
 export function usesQuickExpense(type?: string): boolean {
   return QUICK_EXPENSE_TYPES.includes((type ?? '') as BusinessType)
 }

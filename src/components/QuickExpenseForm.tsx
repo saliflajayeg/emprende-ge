@@ -27,6 +27,12 @@ const CHIPS_BY_TYPE: Record<string, Chip[]> = {
     { label: 'Casa', icon: '🏠', color: '#8b5cf6' },
     { label: 'Otros', icon: '🧾', color: '#64748b' },
   ],
+  laundry: [
+    { label: 'Detergente / Suavizante', icon: '🧼', color: '#0ea5e9' },
+    { label: 'Luz / Agua', icon: '💡', color: '#eab308' },
+    { label: 'Mantenimiento', icon: '🔧', color: '#ef4444' },
+    { label: 'Otros', icon: '📦', color: '#64748b' },
+  ],
 }
 
 const PAYMENT_METHODS = ['Efectivo', 'Transferencia', 'Pago móvil', 'Tarjeta', 'Otro']
