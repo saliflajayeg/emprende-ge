@@ -107,6 +107,13 @@ export const BUSINESS_TYPES: BusinessTypeDef[] = [
   { id: 'other', label: 'Otro / General', icon: '🏢', modules: ['sales', 'expenses', 'invoices', 'clients', 'records'] },
 ]
 
+// Tipos de negocio con "gasto rápido" (interfaz sencilla, sin jerga contable):
+// puestos de comida, tiendas y cuentas personales.
+export const QUICK_EXPENSE_TYPES: BusinessType[] = ['foodstall', 'shop', 'personal']
+export function usesQuickExpense(type?: string): boolean {
+  return QUICK_EXPENSE_TYPES.includes((type ?? '') as BusinessType)
+}
+
 export function businessTypeDef(type?: string): BusinessTypeDef {
   return BUSINESS_TYPES.find((b) => b.id === type) ?? BUSINESS_TYPES.find((b) => b.id === 'other')!
 }

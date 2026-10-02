@@ -8,9 +8,11 @@ import { modulesFor, type ModuleId } from '../modules'
 import { StatCard, Card, Button, Modal, EmptyState } from '../components/ui'
 import { CashFlowChart, DonutChart } from '../components/charts'
 import TxForm from '../components/TxForm'
+import QuickExpenseForm from '../components/QuickExpenseForm'
 import DayAgenda from '../components/DayAgenda'
 import PendingRequests from '../components/PendingRequests'
 import ActivityCards from '../components/ActivityCards'
+import { usesQuickExpense } from '../modules'
 
 export default function Dashboard() {
   const { current } = useBusiness()
@@ -128,7 +130,11 @@ export default function Dashboard() {
       </div>
 
       <Modal open={modal !== null} onClose={() => setModal(null)} title={modal === 'income' ? 'Registrar ingreso' : 'Registrar gasto'}>
-        {modal && <TxForm kind={modal} onDone={() => setModal(null)} />}
+        {modal === 'expense' && usesQuickExpense(current?.businessType) ? (
+          <QuickExpenseForm onDone={() => setModal(null)} />
+        ) : (
+          modal && <TxForm kind={modal} onDone={() => setModal(null)} />
+        )}
       </Modal>
     </div>
   )

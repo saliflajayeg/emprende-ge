@@ -7,6 +7,8 @@ import { money, formatDate } from '../lib/format'
 import { downloadCSV } from '../lib/csv'
 import { Button, Card, Modal, Badge, Select, Input, EmptyState, IconButton } from '../components/ui'
 import TxForm from '../components/TxForm'
+import QuickExpenseForm from '../components/QuickExpenseForm'
+import { usesQuickExpense } from '../modules'
 
 export default function Transactions({
   title = 'Ingresos y gastos',
@@ -19,7 +21,8 @@ export default function Transactions({
   pendingOnly?: boolean
   emptyHint?: string
 } = {}) {
-  const bid = useBusiness().current?.id ?? ''
+  const { current } = useBusiness()
+  const bid = current?.id ?? ''
   const { canDelete } = usePerms()
   const txs = useLiveQuery(() => (bid ? ldb.transactions.where('businessId').equals(bid).toArray() : []), [bid])
   const categories = useLiveQuery(() => (bid ? ldb.categories.where('businessId').equals(bid).toArray() : []), [bid])
@@ -156,8 +159,12 @@ export default function Transactions({
         </Card>
       )}
 
-      <Modal open={modal !== null} onClose={() => setModal(null)} title={modal?.tx ? 'Editar movimiento' : 'Nuevo movimiento'}>
-        {modal && <TxForm kind={modal.kind} existing={modal.tx} onDone={() => setModal(null)} />}
+      <Modal open={modal !== null} onClose={() => setModal(null)} title={modal?.tx ? 'Editar movimiento' : modal?.kind === 'expense' ? 'Registrar gasto' : 'Nuevo movimiento'}>
+        {modal && (modal.kind === 'expense' && usesQuickExpense(current?.businessType) ? (
+          <QuickExpenseForm existing={modal.tx} onDone={() => setModal(null)} />
+        ) : (
+          <TxForm kind={modal.kind} existing={modal.tx} onDone={() => setModal(null)} />
+        ))}
       </Modal>
     </div>
   )
