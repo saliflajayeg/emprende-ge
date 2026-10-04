@@ -12,6 +12,7 @@ import QuickExpenseForm from '../components/QuickExpenseForm'
 import DayAgenda from '../components/DayAgenda'
 import PendingRequests from '../components/PendingRequests'
 import ActivityCards from '../components/ActivityCards'
+import PersonalPanel from '../components/PersonalPanel'
 import { usesQuickExpense } from '../modules'
 
 export default function Dashboard() {
@@ -56,12 +57,17 @@ export default function Dashboard() {
 
       <PendingRequests />
 
-      {/* HOY: lo primero que ve el emprendedor al abrir. Se adapta al negocio. */}
-      <div className="space-y-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Hoy</h2>
-        <ActivityCards bid={bid} enabled={enabled} businessType={current?.businessType} recordsLabel={current?.recordsLabel} />
-        <DayAgenda bid={bid} enabled={enabled} recordsLabel={current?.recordsLabel} />
-      </div>
+      {current?.businessType === 'personal' ? (
+        /* Cuentas personales: patrimonio neto + deudas siempre a la vista */
+        <PersonalPanel bid={bid} />
+      ) : (
+        /* HOY: lo primero que ve el emprendedor al abrir. Se adapta al negocio. */
+        <div className="space-y-4">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Hoy</h2>
+          <ActivityCards bid={bid} enabled={enabled} businessType={current?.businessType} recordsLabel={current?.recordsLabel} />
+          <DayAgenda bid={bid} enabled={enabled} recordsLabel={current?.recordsLabel} />
+        </div>
+      )}
 
       {/* Alertas: siempre visibles (saldo negativo, vencidos…). */}
       {alerts.length > 0 && (
