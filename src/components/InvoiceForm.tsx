@@ -59,7 +59,6 @@ export default function InvoiceForm({
   // Sin IVA: las facturas nuevas no llevan impuesto. Solo una factura antigua que
   // ya lo tenía lo conserva (y se le puede quitar al editarla).
   const [taxRate, setTaxRate] = useState<number>(existing?.taxRate ?? 0)
-  const hadTax = (existing?.taxRate ?? 0) > 0
   const [notes, setNotes] = useState(existing?.notes ?? '')
   const [legacyStatus, setLegacyStatus] = useState(existing?.status ?? 'pending')
   const [items, setItems] = useState<InvoiceItem[]>(existing?.items?.length ? existing.items : [{ description: '', qty: 1, price: 0 }])
