@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { BUSINESS_TYPES, MODULES, modulesFor, withDeps, defaultTaxRate, type BusinessType } from '../modules'
+import { BUSINESS_TYPES, MODULES, modulesFor, withDeps, type BusinessType } from '../modules'
 import { useBusiness } from './business'
 import { useAuth } from './auth'
 import { Button, Field, Input, Select } from '../components/ui'
@@ -45,7 +45,7 @@ export default function CreateBusiness({ onCancel }: { onCancel?: () => void }) 
         businessType: type,
         enabledModules: withDeps(modulesFor(type)),
         currency: form.currency,
-        taxRate: defaultTaxRate(type),
+        taxRate: 0, // las facturas no llevan IVA
       })
       onCancel?.()
     } catch (e) {

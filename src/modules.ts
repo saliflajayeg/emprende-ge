@@ -115,19 +115,6 @@ export function usesQuickExpense(type?: string): boolean {
   return QUICK_EXPENSE_TYPES.includes((type ?? '') as BusinessType)
 }
 
-// IVA por defecto: los negocios informales emiten recibos sin IVA; los formales,
-// facturas con IVA 15%. (El registro nunca preguntaba el IVA y ponía 15 a todos,
-// así que para un tipo informal un 15 se trata como "sin configurar").
-const FORMAL_TYPES: BusinessType[] = ['technician', 'professional', 'health', 'school', 'other']
-export function defaultTaxRate(type?: string): number {
-  return FORMAL_TYPES.includes((type ?? 'other') as BusinessType) ? 15 : 0
-}
-export function invoiceTaxRate(type?: string, configured?: number): number {
-  const formal = FORMAL_TYPES.includes((type ?? 'other') as BusinessType)
-  if (configured === undefined || configured === null) return defaultTaxRate(type)
-  return !formal && configured === 15 ? 0 : configured
-}
-
 export function businessTypeDef(type?: string): BusinessTypeDef {
   return BUSINESS_TYPES.find((b) => b.id === type) ?? BUSINESS_TYPES.find((b) => b.id === 'other')!
 }

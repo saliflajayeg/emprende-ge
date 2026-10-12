@@ -279,10 +279,7 @@ export default function Settings() {
           <Field label="Teléfono">
             <Input defaultValue={current.phone} onBlur={(e) => saveBiz({ phone: e.target.value })} />
           </Field>
-          <Field label="IVA por defecto (%)">
-            <Input type="number" defaultValue={current.taxRate} onBlur={(e) => saveBiz({ taxRate: Number(e.target.value) })} />
-          </Field>
-          <Field label="Dirección" className="sm:col-span-2">
+          <Field label="Dirección">
             <Input defaultValue={current.address} onBlur={(e) => saveBiz({ address: e.target.value })} />
           </Field>
           <Field label="Nombre del módulo de fichas" className="sm:col-span-2">

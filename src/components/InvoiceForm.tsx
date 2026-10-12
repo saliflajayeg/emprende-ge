@@ -6,7 +6,6 @@ import { money, todayISO } from '../lib/format'
 import { invoicePDF, invoiceTotals, type InvoicePay, type PdfBusiness } from '../lib/pdf'
 import { shareInvoice } from '../lib/share'
 import { addInvoicePayment, linkedTxs, paymentSummary, syncInvoiceLedger } from '../lib/invoiceLedger'
-import { invoiceTaxRate } from '../modules'
 import { Button, Field, Input, Select, Textarea } from './ui'
 
 export const pdfBiz = (b: Business): PdfBusiness => ({
@@ -57,7 +56,10 @@ export default function InvoiceForm({
   const [clientPhone, setClientPhone] = useState('')
   const [clientDetails, setClientDetails] = useState(existing?.clientDetails ?? '')
   const [contactId, setContactId] = useState(existing?.contactId ?? '')
-  const [taxRate, setTaxRate] = useState<number>(existing?.taxRate ?? invoiceTaxRate(current?.businessType, current?.taxRate))
+  // Sin IVA: las facturas nuevas no llevan impuesto. Solo una factura antigua que
+  // ya lo tenía lo conserva (y se le puede quitar al editarla).
+  const [taxRate, setTaxRate] = useState<number>(existing?.taxRate ?? 0)
+  const hadTax = (existing?.taxRate ?? 0) > 0
   const [notes, setNotes] = useState(existing?.notes ?? '')
   const [legacyStatus, setLegacyStatus] = useState(existing?.status ?? 'pending')
   const [items, setItems] = useState<InvoiceItem[]>(existing?.items?.length ? existing.items : [{ description: '', qty: 1, price: 0 }])
@@ -263,7 +265,10 @@ export default function InvoiceForm({
         {taxRate > 0 && (
           <>
             <div className="flex justify-between text-sm text-slate-500"><span>Subtotal</span><span className="ge-nums">{money(subtotal)}</span></div>
-            <div className="flex justify-between text-sm text-slate-500"><span>IVA ({taxRate}%)</span><span className="ge-nums">{money(tax)}</span></div>
+            <div className="flex justify-between text-sm text-slate-500">
+              <span>IVA ({taxRate}%) · <button onClick={() => setTaxRate(0)} className="font-medium text-amber-700 underline">quitar IVA</button></span>
+              <span className="ge-nums">{money(tax)}</span>
+            </div>
           </>
         )}
         <div className="flex items-baseline justify-between">
@@ -319,7 +324,7 @@ export default function InvoiceForm({
       {/* Más opciones */}
       <div>
         <button onClick={() => setMore((v) => !v)} className="text-sm text-slate-400">
-          {more ? 'Ocultar más opciones' : 'Más opciones (número, fecha, IVA, notas…)'}
+          {more ? 'Ocultar más opciones' : 'Más opciones (número, fecha, notas…)'}
         </button>
         {more && (
           <div className="mt-3 space-y-3">
@@ -327,16 +332,13 @@ export default function InvoiceForm({
               <Field label="Número"><Input value={number} onChange={(e) => setNumber(e.target.value)} placeholder={autoNumber} /></Field>
               <Field label="Fecha"><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="IVA (%)"><Input type="number" value={taxRate} onChange={(e) => setTaxRate(Number(e.target.value))} /></Field>
-              {!isQuote && isNew && payMode !== 'debt' && (
-                <Field label="Cómo pagó">
-                  <Select value={method} onChange={(e) => setMethod(e.target.value)}>
-                    {METHODS.map((m) => <option key={m}>{m}</option>)}
-                  </Select>
-                </Field>
-              )}
-            </div>
+            {!isQuote && isNew && payMode !== 'debt' && (
+              <Field label="Cómo pagó">
+                <Select value={method} onChange={(e) => setMethod(e.target.value)}>
+                  {METHODS.map((m) => <option key={m}>{m}</option>)}
+                </Select>
+              </Field>
+            )}
             <Field label="Datos del cliente (dirección, NIF…)"><Input value={clientDetails} onChange={(e) => setClientDetails(e.target.value)} /></Field>
             <Field label="Notas"><Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Condiciones, agradecimiento…" /></Field>
           </div>
