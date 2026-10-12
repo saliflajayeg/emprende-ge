@@ -13,16 +13,28 @@ import DayAgenda from '../components/DayAgenda'
 import PendingRequests from '../components/PendingRequests'
 import ActivityCards from '../components/ActivityCards'
 import PersonalPanel from '../components/PersonalPanel'
+import InvoiceForm from '../components/InvoiceForm'
 import { usesQuickExpense } from '../modules'
 
 export default function Dashboard() {
-  const { current } = useBusiness()
+  const { current, updateBusiness } = useBusiness()
   const bid = current?.id ?? ''
   const enabled = (current?.enabledModules as ModuleId[] | undefined) ?? modulesFor(current?.businessType)
   const txs = useLiveQuery(() => (bid ? ldb.transactions.where('businessId').equals(bid).toArray() : []), [bid])
   const categories = useLiveQuery(() => (bid ? ldb.categories.where('businessId').equals(bid).toArray() : []), [bid])
   const [modal, setModal] = useState<null | Kind>(null)
+  const [invoiceOpen, setInvoiceOpen] = useState(false)
   const [showMonth, setShowMonth] = useState(false)
+  const canInvoice = current?.businessType !== 'personal'
+
+  // Al crear la primera factura desde el panel, activa la sección Facturas si
+  // el negocio no la tenía (para poder ver el historial).
+  async function afterInvoice() {
+    setInvoiceOpen(false)
+    if (!enabled.includes('invoices')) {
+      try { await updateBusiness({ enabledModules: [...enabled, 'invoices'] }) } catch { /* sin conexión: se hará luego */ }
+    }
+  }
 
   if (!txs || !categories) return <div className="text-slate-400">Cargando…</div>
 
@@ -54,6 +66,21 @@ export default function Dashboard() {
           <Button variant="danger" onClick={() => setModal('expense')}>+ Gasto</Button>
         </div>
       </div>
+
+      {/* Acción principal: facturar en segundos (sustituye al talonario) */}
+      {canInvoice && (
+        <button
+          onClick={() => setInvoiceOpen(true)}
+          className="flex w-full items-center gap-4 rounded-2xl bg-gradient-to-br from-teal-600 to-teal-700 p-4 text-left text-white shadow-md transition-transform duration-100 ease-out active:scale-[0.98]"
+        >
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white/15 text-2xl">🧾</span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-lg font-bold leading-tight">Nueva factura</span>
+            <span className="block text-sm text-teal-100">Hazla en segundos y envíala por WhatsApp. Tus ventas y deudas se apuntan solas.</span>
+          </span>
+          <span className="text-2xl text-teal-100">›</span>
+        </button>
+      )}
 
       <PendingRequests />
 
@@ -134,6 +161,10 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      <Modal open={invoiceOpen} onClose={() => setInvoiceOpen(false)} title="Nueva factura">
+        {invoiceOpen && <InvoiceForm onDone={afterInvoice} />}
+      </Modal>
 
       <Modal open={modal !== null} onClose={() => setModal(null)} title={modal === 'income' ? 'Registrar ingreso' : 'Registrar gasto'}>
         {modal === 'expense' && usesQuickExpense(current?.businessType) ? (

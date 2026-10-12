@@ -1,5 +1,5 @@
 import type { Invoice } from '../cloud/localdb'
-import { invoicePDF, invoicePDFFile, invoiceTotals, rentalsReportPDF, rentalsReportPDFFile, type PdfBusiness, type RentalsReport } from './pdf'
+import { invoicePDF, invoicePDFFile, invoiceTotals, rentalsReportPDF, rentalsReportPDFFile, type InvoicePay, type PdfBusiness, type RentalsReport } from './pdf'
 import { money } from './format'
 
 const DOC_LABEL: Record<string, string> = { invoice: 'Factura', receipt: 'Recibo', quote: 'Presupuesto' }
@@ -21,11 +21,13 @@ export async function shareInvoice(
   inv: Invoice,
   biz: PdfBusiness,
   clientPhone?: string,
+  pay?: InvoicePay,
 ): Promise<'shared' | 'downloaded' | 'cancelled'> {
   const { total } = invoiceTotals(inv)
   const label = DOC_LABEL[inv.docType] ?? 'Documento'
-  const text = `${label} ${inv.number} — ${biz.businessName}\nTotal: ${money(total, biz.currency)}`
-  const file = invoicePDFFile(inv, biz)
+  const owed = pay && pay.remaining > 0 ? `\nPendiente: ${money(pay.remaining, biz.currency)}` : pay ? '\n✅ Pagado' : ''
+  const text = `${label} ${inv.number} — ${biz.businessName}\nTotal: ${money(total, biz.currency)}${owed}`
+  const file = invoicePDFFile(inv, biz, pay)
 
   const nav = navigator as any
   if (nav.canShare && nav.canShare({ files: [file] })) {
@@ -39,7 +41,7 @@ export async function shareInvoice(
   }
 
   // Plan B (escritorio / sin soporte de compartir archivos): descargar + WhatsApp con texto
-  invoicePDF(inv, biz)
+  invoicePDF(inv, biz, pay)
   const digits = (clientPhone || '').replace(/[^0-9]/g, '')
   const base = digits.length >= 8 ? `https://wa.me/${digits}` : 'https://wa.me/'
   window.open(`${base}?text=${encodeURIComponent(text)}`, '_blank', 'noopener')

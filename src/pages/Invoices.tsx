@@ -1,265 +1,141 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ldb, removeRow, type Invoice, type InvoiceItem, type DocType } from '../cloud/localdb'
-import { useBusiness, type Business } from '../cloud/business'
+import { ldb, type Invoice, type DocType, type Transaction } from '../cloud/localdb'
+import { useBusiness } from '../cloud/business'
 import { usePerms } from '../cloud/perms'
 import { money, formatDate, todayISO } from '../lib/format'
-import { invoicePDF, invoiceTotals, type PdfBusiness } from '../lib/pdf'
+import { invoicePDF, type InvoicePay } from '../lib/pdf'
 import { shareInvoice } from '../lib/share'
-import { Button, Card, Modal, Field, Input, Textarea, Select, Badge, EmptyState } from '../components/ui'
-
-const pdfBiz = (b: Business): PdfBusiness => ({
-  businessName: b.name,
-  sector: b.sector,
-  address: b.address,
-  phone: b.phone,
-  currency: b.currency,
-  logo: b.logo,
-})
+import { addInvoicePayment, deleteInvoiceWithLedger, paymentSummary } from '../lib/invoiceLedger'
+import InvoiceForm, { pdfBiz } from '../components/InvoiceForm'
+import { Button, Card, Modal, Field, Input, Select, EmptyState, IconButton } from '../components/ui'
 
 const DOC_LABEL: Record<DocType, string> = { invoice: 'Factura', receipt: 'Recibo', quote: 'Presupuesto' }
-const DOC_ICON: Record<DocType, string> = { invoice: '🧾', receipt: '🧻', quote: '📄' }
+const METHODS = ['Efectivo', 'Transferencia', 'Pago móvil', 'Tarjeta', 'Otro']
 
-function nextNumber(existing: Invoice[], prefix = ''): string {
-  const year = new Date().getFullYear()
-  const n = existing.filter((i) => i.number.includes(String(year))).length + 1
-  return `${prefix}${year}-${String(n).padStart(3, '0')}`
-}
+const STATE_UI = {
+  paid: { label: 'Pagada', cls: 'bg-teal-50 text-teal-700' },
+  partial: { label: 'Abonada', cls: 'bg-sky-50 text-sky-700' },
+  pending: { label: 'A deber', cls: 'bg-amber-50 text-amber-700' },
+} as const
 
-function InvoiceForm({
-  all,
-  existing,
-  allowedTypes,
-  defaultDocType,
-  onDone,
-}: {
-  all: Invoice[]
-  existing?: Invoice
-  allowedTypes: DocType[]
-  defaultDocType: DocType
-  onDone: () => void
-}) {
-  const { current } = useBusiness()
-  const bid = current?.id ?? ''
-  const contacts = useLiveQuery(() => (bid ? ldb.contacts.where('businessId').equals(bid).filter((c) => c.type === 'client').toArray() : []), [bid])
+// Registrar un abono/cobro de una factura.
+function PaymentForm({ inv, remaining, onDone }: { inv: Invoice; remaining: number; onDone: () => void }) {
+  const bid = useBusiness().current?.id ?? ''
+  const [amount, setAmount] = useState(String(remaining))
+  const [date, setDate] = useState(todayISO())
+  const [method, setMethod] = useState('Efectivo')
+  const [busy, setBusy] = useState(false)
+  const value = Math.min(Number(amount) || 0, remaining)
 
-  const [form, setForm] = useState({
-    docType: (existing?.docType ?? defaultDocType) as DocType,
-    number: existing?.number ?? nextNumber(all, defaultDocType === 'quote' ? 'P-' : ''),
-    date: existing?.date ?? todayISO(),
-    clientName: existing?.clientName ?? '',
-    clientDetails: existing?.clientDetails ?? '',
-    contactId: existing?.contactId ?? '',
-    taxRate: existing?.taxRate ?? current?.taxRate ?? 15,
-    notes: existing?.notes ?? '',
-    status: existing?.status ?? 'pending',
-  })
-  const [items, setItems] = useState<InvoiceItem[]>(
-    existing?.items ?? [{ description: '', qty: 1, price: 0 }],
-  )
-  const set = (k: string, v: string | number) => setForm((f) => ({ ...f, [k]: v }))
-
-  const setItem = (i: number, patch: Partial<InvoiceItem>) =>
-    setItems((arr) => arr.map((it, idx) => (idx === i ? { ...it, ...patch } : it)))
-  const addItem = () => setItems((a) => [...a, { description: '', qty: 1, price: 0 }])
-  const removeItem = (i: number) => setItems((a) => a.filter((_, idx) => idx !== i))
-
-  const { subtotal, tax, total } = invoiceTotals({ items, taxRate: form.taxRate })
-
-  function pickContact(id: string) {
-    set('contactId', id)
-    const c = contacts?.find((x) => x.id === id)
-    if (c) {
-      set('clientName', c.name)
-      set('clientDetails', [c.phone, c.email].filter(Boolean).join(' · '))
-    }
-  }
-
-  async function save(action: 'save' | 'pdf' | 'whatsapp') {
-    const rec = {
-      docType: form.docType,
-      number: form.number,
-      date: form.date,
-      clientName: form.clientName.trim() || 'Cliente',
-      clientDetails: form.clientDetails.trim(),
-      contactId: form.contactId || undefined,
-      items: items.filter((it) => it.description.trim() || it.price > 0),
-      taxRate: Number(form.taxRate),
-      notes: form.notes.trim(),
-      status: form.status as Invoice['status'],
-      createdAt: existing?.createdAt ?? new Date().toISOString(),
-    }
-    if (existing?.id) await ldb.invoices.update(existing.id, rec)
-    else await ldb.invoices.add(rec as Invoice)
-    if (current) {
-      if (action === 'pdf') invoicePDF(rec as Invoice, pdfBiz(current))
-      else if (action === 'whatsapp') {
-        const phone = contacts?.find((c) => c.id === form.contactId)?.phone
-        await shareInvoice(rec as Invoice, pdfBiz(current), phone)
-      }
-    }
+  async function save() {
+    if (value <= 0) return
+    setBusy(true)
+    await addInvoicePayment(bid, inv, value, { date, method })
     onDone()
   }
 
-  const isQuote = form.docType === 'quote'
-
   return (
     <div className="space-y-4">
-      {allowedTypes.length > 1 && (
-        <div className="grid gap-2 rounded-lg bg-slate-100 p-1" style={{ gridTemplateColumns: `repeat(${allowedTypes.length}, minmax(0, 1fr))` }}>
-          {allowedTypes.map((t) => (
-            <button
-              key={t}
-              onClick={() => set('docType', t)}
-              className={`rounded-md py-2 text-sm font-semibold ${form.docType === t ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}
-            >
-              {DOC_ICON[t]} {DOC_LABEL[t]}
-            </button>
-          ))}
-        </div>
-      )}
-
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="Número">
-          <Input value={form.number} onChange={(e) => set('number', e.target.value)} />
-        </Field>
-        <Field label="Fecha">
-          <Input type="date" value={form.date} onChange={(e) => set('date', e.target.value)} />
-        </Field>
-      </div>
-
-      {contacts && contacts.length > 0 && (
-        <Field label="Cliente guardado">
-          <Select value={form.contactId} onChange={(e) => pickContact(e.target.value)}>
-            <option value="">— Escribir manualmente —</option>
-            {contacts.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </Select>
-        </Field>
-      )}
-
-      <Field label="Nombre del cliente">
-        <Input value={form.clientName} onChange={(e) => set('clientName', e.target.value)} />
-      </Field>
-      <Field label="Datos del cliente (tel., dirección…)">
-        <Input value={form.clientDetails} onChange={(e) => set('clientDetails', e.target.value)} />
-      </Field>
-
-      {/* Líneas */}
-      <div>
-        <div className="mb-2 text-sm font-medium text-slate-700">Conceptos</div>
-        <div className="mb-1 grid grid-cols-[1fr_56px_88px_20px] gap-2 text-xs text-slate-400">
-          <span>Descripción</span>
-          <span className="text-center">Cant.</span>
-          <span className="text-right">Precio</span>
-          <span />
-        </div>
-        <div className="space-y-2">
-          {items.map((it, i) => (
-            <div key={i} className="grid grid-cols-[1fr_56px_88px_20px] items-center gap-2">
-              <Input
-                placeholder="Concepto"
-                value={it.description}
-                onChange={(e) => setItem(i, { description: e.target.value })}
-              />
-              <Input
-                type="number"
-                title="Cantidad"
-                value={it.qty}
-                onChange={(e) => setItem(i, { qty: Number(e.target.value) })}
-              />
-              <Input
-                type="number"
-                title="Precio"
-                value={it.price}
-                onChange={(e) => setItem(i, { price: Number(e.target.value) })}
-              />
-              <button onClick={() => removeItem(i)} className="text-slate-400 hover:text-red-600" title="Quitar">
-                ✕
-              </button>
-            </div>
-          ))}
-        </div>
-        <button onClick={addItem} className="mt-2 text-sm font-medium text-teal-600 hover:underline">
-          + Añadir línea
-        </button>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <Field label="IVA (%)">
-          <Input type="number" value={form.taxRate} onChange={(e) => set('taxRate', Number(e.target.value))} />
-        </Field>
-        <Field label="Estado">
-          <Select value={form.status} onChange={(e) => set('status', e.target.value)}>
-            <option value="pending">{isQuote ? 'Pendiente' : 'Pendiente de cobro'}</option>
-            <option value="paid">{isQuote ? 'Aceptado' : 'Cobrada'}</option>
-          </Select>
-        </Field>
-      </div>
-
-      <Field label="Notas">
-        <Textarea rows={2} value={form.notes} onChange={(e) => set('notes', e.target.value)} placeholder="Condiciones de pago, agradecimiento…" />
-      </Field>
-
-      {/* Totales */}
       <div className="rounded-lg bg-slate-50 p-3 text-sm">
-        <div className="flex justify-between text-slate-500"><span>Subtotal</span><span>{money(subtotal)}</span></div>
-        <div className="flex justify-between text-slate-500"><span>IVA</span><span>{money(tax)}</span></div>
-        <div className="mt-1 flex justify-between border-t border-slate-200 pt-1 text-base font-bold text-teal-700">
-          <span>Total</span><span>{money(total)}</span>
-        </div>
+        <div className="font-semibold text-slate-800">{DOC_LABEL[inv.docType]} {inv.number} · {inv.clientName}</div>
+        <div className="text-slate-500">Debe <b className="text-amber-700">{money(remaining)}</b></div>
       </div>
-
-      <div className="space-y-2 pt-1">
-        <Button onClick={() => save('whatsapp')} className="w-full !bg-[#25D366] hover:!bg-[#1ebe5b]">📲 Guardar y enviar por WhatsApp</Button>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => save('save')} className="flex-1">Guardar</Button>
-          <Button variant="outline" onClick={() => save('pdf')} className="flex-1">Guardar y descargar PDF</Button>
-        </div>
+      <Field label="¿Cuánto paga ahora?">
+        <Input type="number" inputMode="numeric" value={amount} onChange={(e) => setAmount(e.target.value)} autoFocus className="ge-nums text-lg" />
+      </Field>
+      <div className="flex gap-2">
+        <button onClick={() => setAmount(String(remaining))} className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 active:scale-95">Todo ({money(remaining)})</button>
+        <button onClick={() => setAmount(String(Math.round(remaining / 2)))} className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 active:scale-95">La mitad</button>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Fecha"><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
+        <Field label="Cómo pagó">
+          <Select value={method} onChange={(e) => setMethod(e.target.value)}>
+            {METHODS.map((m) => <option key={m}>{m}</option>)}
+          </Select>
+        </Field>
+      </div>
+      {value > 0 && value < remaining && <p className="text-xs text-slate-500">Seguirá debiendo {money(remaining - value)}.</p>}
+      <div className="flex gap-2">
+        <Button variant="outline" onClick={onDone} className="flex-1">Cancelar</Button>
+        <Button onClick={save} disabled={busy || value <= 0} className="flex-1">{value >= remaining ? 'Marcar pagada' : 'Registrar abono'}</Button>
       </div>
     </div>
   )
 }
 
-export default function Invoices({
-  mode = 'invoices',
-}: {
-  mode?: 'invoices' | 'quotes'
-} = {}) {
+type Filter = 'all' | 'owed' | 'paid'
+
+export default function Invoices({ mode = 'invoices' }: { mode?: 'invoices' | 'quotes' } = {}) {
   const { current } = useBusiness()
   const { canDelete } = usePerms()
   const bid = current?.id ?? ''
   const all = useLiveQuery(
-    () => (bid ? ldb.invoices.where('businessId').equals(bid).toArray().then((r) => r.sort((a, b) => b.date.localeCompare(a.date))) : []),
+    () => (bid ? ldb.invoices.where('businessId').equals(bid).toArray().then((r) => r.sort((a, b) => (b.date + b.createdAt).localeCompare(a.date + a.createdAt))) : []),
     [bid],
   )
+  const ledgerTxs = useLiveQuery(() => (bid ? ldb.transactions.where('businessId').equals(bid).filter((t) => !!t.invoiceId).toArray() : []), [bid])
   const contacts = useLiveQuery(() => (bid ? ldb.contacts.where('businessId').equals(bid).toArray() : []), [bid])
   const [modal, setModal] = useState<null | { inv?: Invoice }>(null)
+  const [paying, setPaying] = useState<null | { inv: Invoice; remaining: number }>(null)
   const [sharing, setSharing] = useState<string | null>(null)
-
-  const clientPhone = (inv: Invoice) => contacts?.find((c) => c.id === inv.contactId)?.phone
-
-  async function sendWhatsApp(inv: Invoice) {
-    if (!current) return
-    setSharing(inv.id)
-    try {
-      await shareInvoice(inv, pdfBiz(current), clientPhone(inv))
-    } catch { /* cancelado o no soportado */ }
-    setSharing(null)
-  }
+  const [filter, setFilter] = useState<Filter>('all')
+  const [query, setQuery] = useState('')
 
   const isQuotes = mode === 'quotes'
   const allowedTypes: DocType[] = isQuotes ? ['quote'] : ['invoice', 'receipt']
   const defaultDocType: DocType = isQuotes ? 'quote' : 'invoice'
   const title = isQuotes ? 'Presupuestos' : 'Facturas y recibos'
 
-  if (!all) return <div className="text-slate-400">Cargando…</div>
-  const invoices = all.filter((i) => allowedTypes.includes(i.docType))
+  const txByInvoice = useMemo(() => {
+    const m = new Map<string, Transaction[]>()
+    for (const t of ledgerTxs ?? []) {
+      const k = t.invoiceId as string
+      m.set(k, [...(m.get(k) ?? []), t])
+    }
+    return m
+  }, [ledgerTxs])
 
-  async function remove(id?: string) {
-    if (!id) return
-    if (confirm('¿Eliminar este documento?')) await removeRow('invoices', id)
+  if (!all) return <div className="text-slate-400">Cargando…</div>
+
+  const rows = all
+    .filter((i) => allowedTypes.includes(i.docType))
+    .map((inv) => ({ inv, s: paymentSummary(inv, txByInvoice.get(inv.id) ?? []) }))
+  const owedTotal = isQuotes ? 0 : rows.reduce((s, r) => s + r.s.remaining, 0)
+  const owedCount = rows.filter((r) => r.s.remaining > 0).length
+
+  const shown = rows.filter(({ inv, s }) => {
+    if (!isQuotes && filter === 'owed' && s.remaining <= 0) return false
+    if (!isQuotes && filter === 'paid' && s.remaining > 0) return false
+    const q = query.trim().toLowerCase()
+    if (q && !`${inv.clientName} ${inv.number}`.toLowerCase().includes(q)) return false
+    return true
+  })
+
+  const clientPhone = (inv: Invoice) => contacts?.find((c) => c.id === inv.contactId)?.phone
+  const payOf = (inv: Invoice, s: ReturnType<typeof paymentSummary>): InvoicePay | undefined =>
+    inv.docType === 'quote' ? undefined : { paid: s.paid, remaining: s.remaining }
+
+  async function sendWhatsApp(inv: Invoice, s: ReturnType<typeof paymentSummary>) {
+    if (!current) return
+    setSharing(inv.id)
+    try { await shareInvoice(inv, pdfBiz(current), clientPhone(inv), payOf(inv, s)) } catch { /* cancelado */ }
+    setSharing(null)
+  }
+
+  // Recordar la deuda por WhatsApp
+  function remind(inv: Invoice, remaining: number) {
+    const digits = (clientPhone(inv) || '').replace(/[^0-9]/g, '')
+    const msg = `Hola ${inv.clientName}, te recordamos amablemente que tienes pendiente ${money(remaining)} de la ${DOC_LABEL[inv.docType].toLowerCase()} ${inv.number}${current?.name ? ` de ${current.name}` : ''}. ¡Gracias!`
+    const base = digits.length >= 8 ? `https://wa.me/${digits}` : 'https://wa.me/'
+    window.open(`${base}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener')
+  }
+
+  async function remove(inv: Invoice) {
+    const hasMoney = (txByInvoice.get(inv.id) ?? []).length > 0
+    if (!confirm(hasMoney ? '¿Eliminar este documento y sus cobros/deuda de la caja?' : '¿Eliminar este documento?')) return
+    await deleteInvoiceWithLedger(bid, inv)
   }
 
   return (
@@ -269,45 +145,83 @@ export default function Invoices({
         <Button onClick={() => setModal({})}>+ {isQuotes ? 'Nuevo presupuesto' : 'Nueva factura'}</Button>
       </div>
 
-      {invoices.length === 0 ? (
+      {!isQuotes && rows.length > 0 && (
+        <Card className="flex items-center justify-between gap-3">
+          <div>
+            <div className="text-xs uppercase tracking-wide text-slate-400">Por cobrar</div>
+            <div className={`ge-nums text-2xl font-bold ${owedTotal > 0 ? 'text-amber-600' : 'text-teal-600'}`}>{money(owedTotal)}</div>
+          </div>
+          <div className="text-right text-sm text-slate-500">
+            {owedCount > 0 ? `${owedCount} factura${owedCount > 1 ? 's' : ''} sin cobrar del todo` : 'Todo cobrado ✓'}
+          </div>
+        </Card>
+      )}
+
+      {rows.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          {!isQuotes && ([['all', 'Todas'], ['owed', 'A deber'], ['paid', 'Pagadas']] as [Filter, string][]).map(([f, lbl]) => (
+            <button key={f} onClick={() => setFilter(f)}
+              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-transform active:scale-95 ${filter === f ? 'bg-teal-600 text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200'}`}>
+              {lbl}
+            </button>
+          ))}
+          <div className="min-w-[160px] flex-1">
+            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar cliente o número…" />
+          </div>
+        </div>
+      )}
+
+      {rows.length === 0 ? (
         <EmptyState
-          title="Sin documentos"
-          hint={isQuotes ? 'Crea un presupuesto y descárgalo en PDF para tu cliente.' : 'Crea una factura o recibo y descárgalo en PDF para tu cliente.'}
+          title={isQuotes ? 'Sin presupuestos' : 'Aún no tienes facturas'}
+          hint={isQuotes ? 'Crea un presupuesto y envíalo por WhatsApp.' : 'Crea tu primera factura en segundos y envíala por WhatsApp. Tus ventas, clientes y deudas se apuntan solos.'}
         />
+      ) : shown.length === 0 ? (
+        <p className="text-sm text-slate-400">No hay documentos con este filtro.</p>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {invoices.map((inv) => {
-            const { total } = invoiceTotals(inv)
+          {shown.map(({ inv, s }) => {
+            const ui = STATE_UI[s.state]
             return (
               <Card key={inv.id}>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="text-xs uppercase text-slate-400">
-                      {DOC_LABEL[inv.docType]} · {inv.number}
-                    </div>
-                    <div className="font-semibold text-slate-800">{inv.clientName}</div>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-xs uppercase text-slate-400">{DOC_LABEL[inv.docType]} · {inv.number}</div>
+                    <div className="truncate font-semibold text-slate-800">{inv.clientName}</div>
                     <div className="text-sm text-slate-500">{formatDate(inv.date)}</div>
                   </div>
-                  <Badge status={inv.status} />
+                  {isQuotes ? (
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${inv.status === 'paid' ? 'bg-teal-50 text-teal-700' : 'bg-slate-100 text-slate-500'}`}>
+                      {inv.status === 'paid' ? 'Aceptado' : 'Pendiente'}
+                    </span>
+                  ) : (
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${ui.cls}`}>{ui.label}</span>
+                  )}
                 </div>
-                <div className="ge-nums mt-3 text-xl font-bold text-teal-700">{money(total)}</div>
-                <Button
-                  className="mt-3 w-full !bg-[#25D366] hover:!bg-[#1ebe5b]"
-                  onClick={() => sendWhatsApp(inv)}
-                  disabled={sharing === inv.id}
-                >
+
+                <div className="ge-nums mt-3 text-xl font-bold text-teal-700">{money(s.total)}</div>
+                {!isQuotes && s.remaining > 0 && (
+                  <div className="text-sm text-amber-700">
+                    {s.paid > 0 && <span className="text-slate-500">Pagado {money(s.paid)} · </span>}
+                    Debe <b>{money(s.remaining)}</b>
+                  </div>
+                )}
+
+                {!isQuotes && s.remaining > 0 && (
+                  <div className="mt-3 flex gap-2">
+                    <Button onClick={() => setPaying({ inv, remaining: s.remaining })} className="flex-1">💵 Registrar pago</Button>
+                    <button onClick={() => remind(inv, s.remaining)} title="Recordar la deuda por WhatsApp"
+                      className="grid w-11 shrink-0 place-items-center rounded-lg bg-[#25D366] text-white active:scale-95">🔔</button>
+                  </div>
+                )}
+
+                <Button className="mt-2 w-full !bg-[#25D366] hover:!bg-[#1ebe5b]" onClick={() => sendWhatsApp(inv, s)} disabled={sharing === inv.id}>
                   {sharing === inv.id ? 'Preparando…' : '📲 Enviar por WhatsApp'}
                 </Button>
-                <div className="mt-2 flex gap-2">
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => current && invoicePDF(inv, pdfBiz(current))}
-                  >
-                    ⬇ PDF
-                  </Button>
-                  <Button variant="ghost" onClick={() => setModal({ inv })}>✎</Button>
-                  {canDelete && <Button variant="ghost" onClick={() => remove(inv.id)}>🗑</Button>}
+                <div className="mt-2 flex items-center gap-1">
+                  <Button variant="outline" className="flex-1" onClick={() => current && invoicePDF(inv, pdfBiz(current), payOf(inv, s))}>⬇ PDF</Button>
+                  <IconButton onClick={() => setModal({ inv })} title="Editar">✎</IconButton>
+                  {canDelete && <IconButton onClick={() => remove(inv)} title="Eliminar" className="text-slate-400 hover:text-red-600">🗑</IconButton>}
                 </div>
               </Card>
             )
@@ -315,20 +229,12 @@ export default function Invoices({
         </div>
       )}
 
-      <Modal
-        open={modal !== null}
-        onClose={() => setModal(null)}
-        title={modal?.inv ? 'Editar documento' : isQuotes ? 'Nuevo presupuesto' : 'Nueva factura / recibo'}
-      >
-        {modal && (
-          <InvoiceForm
-            all={all}
-            existing={modal.inv}
-            allowedTypes={allowedTypes}
-            defaultDocType={defaultDocType}
-            onDone={() => setModal(null)}
-          />
-        )}
+      <Modal open={modal !== null} onClose={() => setModal(null)}
+        title={modal?.inv ? 'Editar documento' : isQuotes ? 'Nuevo presupuesto' : 'Nueva factura'}>
+        {modal && <InvoiceForm existing={modal.inv} allowedTypes={allowedTypes} defaultDocType={defaultDocType} onDone={() => setModal(null)} />}
+      </Modal>
+      <Modal open={paying !== null} onClose={() => setPaying(null)} title="Registrar pago">
+        {paying && <PaymentForm inv={paying.inv} remaining={paying.remaining} onDone={() => setPaying(null)} />}
       </Modal>
     </div>
   )

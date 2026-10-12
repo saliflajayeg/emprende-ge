@@ -63,7 +63,10 @@ function header(doc: jsPDF, s: PdfBusiness, title: string) {
   doc.text(title, 196, 20, { align: 'right' })
 }
 
-function buildInvoiceDoc(inv: Invoice, s: PdfBusiness): { doc: jsPDF; filename: string } {
+// Estado de cobro que se imprime en la factura (opcional).
+export interface InvoicePay { paid: number; remaining: number }
+
+function buildInvoiceDoc(inv: Invoice, s: PdfBusiness, pay?: InvoicePay): { doc: jsPDF; filename: string } {
   const doc = new jsPDF()
   const TITLES: Record<string, string> = { invoice: 'FACTURA', receipt: 'RECIBO', quote: 'PRESUPUESTO' }
   const title = TITLES[inv.docType] ?? 'FACTURA'
@@ -119,12 +122,15 @@ function buildInvoiceDoc(inv: Invoice, s: PdfBusiness): { doc: jsPDF; filename: 
   doc.setFontSize(10)
   doc.setTextColor(...DARK)
   doc.setFont('helvetica', 'normal')
-  doc.text('Subtotal', labelX, y)
-  doc.text(`${moneyPlain(subtotal)} ${s.currency}`, rightX, y, { align: 'right' })
-  y += 6
-  doc.text(`IVA (${inv.taxRate}%)`, labelX, y)
-  doc.text(`${moneyPlain(tax)} ${s.currency}`, rightX, y, { align: 'right' })
-  y += 3
+  // Sin IVA (recibo sencillo): solo el total, más limpio.
+  if (Number(inv.taxRate) > 0) {
+    doc.text('Subtotal', labelX, y)
+    doc.text(`${moneyPlain(subtotal)} ${s.currency}`, rightX, y, { align: 'right' })
+    y += 6
+    doc.text(`IVA (${inv.taxRate}%)`, labelX, y)
+    doc.text(`${moneyPlain(tax)} ${s.currency}`, rightX, y, { align: 'right' })
+    y += 3
+  }
   doc.setDrawColor(...TEAL)
   doc.line(labelX, y, rightX, y)
   y += 6
@@ -133,6 +139,26 @@ function buildInvoiceDoc(inv: Invoice, s: PdfBusiness): { doc: jsPDF; filename: 
   doc.setTextColor(...TEAL)
   doc.text('TOTAL', labelX, y)
   doc.text(`${moneyPlain(total)} ${s.currency}`, rightX, y, { align: 'right' })
+
+  // Estado de cobro: pagado / pendiente (abonos)
+  if (pay && inv.docType !== 'quote') {
+    y += 7
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(...DARK)
+    doc.text('Pagado', labelX, y)
+    doc.text(`${moneyPlain(pay.paid)} ${s.currency}`, rightX, y, { align: 'right' })
+    y += 6
+    doc.setFont('helvetica', 'bold')
+    if (pay.remaining > 0) {
+      doc.setTextColor(...RED)
+      doc.text('Pendiente', labelX, y)
+      doc.text(`${moneyPlain(pay.remaining)} ${s.currency}`, rightX, y, { align: 'right' })
+    } else {
+      doc.setTextColor(...TEAL)
+      doc.text('PAGADO', rightX, y, { align: 'right' })
+    }
+  }
 
   if (inv.notes) {
     y += 14
@@ -158,14 +184,14 @@ function buildInvoiceDoc(inv: Invoice, s: PdfBusiness): { doc: jsPDF; filename: 
 }
 
 // Descarga la factura como PDF.
-export function invoicePDF(inv: Invoice, s: PdfBusiness) {
-  const { doc, filename } = buildInvoiceDoc(inv, s)
+export function invoicePDF(inv: Invoice, s: PdfBusiness, pay?: InvoicePay) {
+  const { doc, filename } = buildInvoiceDoc(inv, s, pay)
   doc.save(filename)
 }
 
 // Devuelve la factura como archivo PDF (para compartir por WhatsApp, etc.).
-export function invoicePDFFile(inv: Invoice, s: PdfBusiness): File {
-  const { doc, filename } = buildInvoiceDoc(inv, s)
+export function invoicePDFFile(inv: Invoice, s: PdfBusiness, pay?: InvoicePay): File {
+  const { doc, filename } = buildInvoiceDoc(inv, s, pay)
   const blob = doc.output('blob')
   return new File([blob], filename, { type: 'application/pdf' })
 }

@@ -31,6 +31,7 @@ export interface Transaction extends Base {
   kind: Kind; date: string; categoryId?: string; contactId?: string; description: string
   amount: number; paymentMethod: string; status: TxStatus; dueDate?: string; createdAt: string
   unitId?: string; period?: string // alquileres: unidad y mes (YYYY-MM) al que corresponde el pago
+  invoiceId?: string // factura de la que sale este cobro (pagado) o esta deuda (pendiente)
 }
 // Unidad de alquiler (apartamento, habitación, local…) con su inquilino y renta
 export interface Unit extends Base {
@@ -67,7 +68,7 @@ export interface SyncState { id: string; lastPulledAt: string }
 // Nombres de las tablas de datos que se sincronizan (orden = respeta dependencias)
 export const SYNC_TABLES = [
   'categories', 'contacts', 'items', 'employees', 'units',
-  'transactions', 'invoices', 'appointments', 'jobs', 'records', 'recordEntries',
+  'invoices', 'transactions', 'appointments', 'jobs', 'records', 'recordEntries',
 ] as const
 export type SyncTable = (typeof SYNC_TABLES)[number]
 

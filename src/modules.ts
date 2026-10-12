@@ -90,10 +90,10 @@ export interface BusinessTypeDef {
 }
 
 export const BUSINESS_TYPES: BusinessTypeDef[] = [
-  { id: 'salon', label: 'Peluquería / Belleza', icon: '💈', modules: ['appointments', 'clients', 'services', 'sales', 'expenses', 'employees'] },
-  { id: 'restaurant', label: 'Restaurante / Bar', icon: '🍽️', modules: ['sales', 'products', 'ingredients', 'stock', 'expenses'] },
-  { id: 'foodstall', label: 'Puesto de comida', icon: '🍢', modules: ['sales', 'products', 'ingredients', 'stock', 'expenses'] },
-  { id: 'shop', label: 'Tienda / Abacería / Ferretería', icon: '🏪', modules: ['products', 'stock', 'sales', 'clients', 'debts'] },
+  { id: 'salon', label: 'Peluquería / Belleza', icon: '💈', modules: ['invoices', 'appointments', 'clients', 'services', 'sales', 'expenses', 'employees'] },
+  { id: 'restaurant', label: 'Restaurante / Bar', icon: '🍽️', modules: ['invoices', 'sales', 'products', 'ingredients', 'stock', 'expenses'] },
+  { id: 'foodstall', label: 'Puesto de comida', icon: '🍢', modules: ['invoices', 'sales', 'products', 'ingredients', 'stock', 'expenses'] },
+  { id: 'shop', label: 'Tienda / Abacería / Ferretería', icon: '🏪', modules: ['invoices', 'products', 'stock', 'sales', 'clients', 'debts'] },
   { id: 'technician', label: 'Técnico / Reparaciones', icon: '🔧', modules: ['services', 'clients', 'quotes', 'invoices', 'expenses', 'jobs'] },
   { id: 'professional', label: 'Profesional independiente', icon: '💼', modules: ['clients', 'services', 'invoices', 'expenses', 'collections'] },
   { id: 'rentals', label: 'Alquileres / Inmobiliaria', icon: '🏠', modules: ['rentals', 'expenses', 'invoices'] },
@@ -101,9 +101,9 @@ export const BUSINESS_TYPES: BusinessTypeDef[] = [
   { id: 'ngo', label: 'ONG / Asociación', icon: '🤝', modules: ['records', 'transactions', 'expenses'] },
   { id: 'shelter', label: 'Acogida / Centro de menores', icon: '🏡', modules: ['records', 'expenses', 'employees'] },
   { id: 'health', label: 'Clínica / Consultorio', icon: '🩺', modules: ['appointments', 'records', 'invoices', 'expenses'] },
-  { id: 'agro', label: 'Agricultura / Ganadería', icon: '🌾', modules: ['sales', 'products', 'stock', 'expenses'] },
-  { id: 'transport', label: 'Transporte / Taxi', icon: '🚗', modules: ['services', 'clients', 'sales', 'expenses'] },
-  { id: 'laundry', label: 'Lavandería', icon: '🧺', modules: ['services', 'clients', 'sales', 'expenses', 'jobs'] },
+  { id: 'agro', label: 'Agricultura / Ganadería', icon: '🌾', modules: ['invoices', 'sales', 'products', 'stock', 'expenses'] },
+  { id: 'transport', label: 'Transporte / Taxi', icon: '🚗', modules: ['invoices', 'services', 'clients', 'sales', 'expenses'] },
+  { id: 'laundry', label: 'Lavandería', icon: '🧺', modules: ['invoices', 'services', 'clients', 'sales', 'expenses', 'jobs'] },
   { id: 'personal', label: 'Personal / Mis cuentas', icon: '🙋', modules: ['transactions', 'debts', 'collections'] },
   { id: 'other', label: 'Otro / General', icon: '🏢', modules: ['sales', 'expenses', 'invoices', 'clients', 'records'] },
 ]
@@ -113,6 +113,19 @@ export const BUSINESS_TYPES: BusinessTypeDef[] = [
 export const QUICK_EXPENSE_TYPES: BusinessType[] = ['foodstall', 'shop', 'personal', 'laundry']
 export function usesQuickExpense(type?: string): boolean {
   return QUICK_EXPENSE_TYPES.includes((type ?? '') as BusinessType)
+}
+
+// IVA por defecto: los negocios informales emiten recibos sin IVA; los formales,
+// facturas con IVA 15%. (El registro nunca preguntaba el IVA y ponía 15 a todos,
+// así que para un tipo informal un 15 se trata como "sin configurar").
+const FORMAL_TYPES: BusinessType[] = ['technician', 'professional', 'health', 'school', 'other']
+export function defaultTaxRate(type?: string): number {
+  return FORMAL_TYPES.includes((type ?? 'other') as BusinessType) ? 15 : 0
+}
+export function invoiceTaxRate(type?: string, configured?: number): number {
+  const formal = FORMAL_TYPES.includes((type ?? 'other') as BusinessType)
+  if (configured === undefined || configured === null) return defaultTaxRate(type)
+  return !formal && configured === 15 ? 0 : configured
 }
 
 export function businessTypeDef(type?: string): BusinessTypeDef {
@@ -125,8 +138,10 @@ export function modulesFor(type?: string): ModuleId[] {
 
 // Resuelve la navegación final: Panel + módulos activos + Informes + Ajustes
 export function navModules(enabled: ModuleId[]): ModuleDef[] {
-  const middle = enabled.filter((id) => !['dashboard', 'reports', 'settings'].includes(id))
-  const ids: ModuleId[] = ['dashboard', ...middle, 'reports', 'settings']
+  const middle = enabled.filter((id) => !['dashboard', 'reports', 'settings', 'invoices'].includes(id))
+  // Facturas va justo después del Panel: es la función principal (y así sale en la barra inferior).
+  const head: ModuleId[] = enabled.includes('invoices') ? ['dashboard', 'invoices'] : ['dashboard']
+  const ids: ModuleId[] = [...head, ...middle, 'reports', 'settings']
   // dedupe manteniendo orden
   const seen = new Set<ModuleId>()
   return ids.filter((id) => (seen.has(id) ? false : (seen.add(id), true))).map((id) => MODULES[id])
