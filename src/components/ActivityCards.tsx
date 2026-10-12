@@ -22,11 +22,13 @@ export default function ActivityCards({
   enabled,
   businessType,
   recordsLabel,
+  hideMoney = false,
 }: {
   bid: string
   enabled: string[]
   businessType?: string
   recordsLabel?: string
+  hideMoney?: boolean // el panel ya muestra el dinero del día en grande
 }) {
   const navigate = useNavigate()
   const today = todayISO()
@@ -68,7 +70,9 @@ export default function ActivityCards({
   const cards: ActCard[] = []
 
   // Dinero del día
-  if (isPersonal) {
+  if (hideMoney) {
+    /* lo muestra el panel */
+  } else if (isPersonal) {
     const net = dayIncome - dayExpense
     cards.push({ key: 'money', icon: net >= 0 ? '📈' : '📉', value: money(net), label: 'Balance de hoy', tone: net >= 0 ? 'good' : 'bad', to: '/transacciones' })
   } else if (hasMoney) {
