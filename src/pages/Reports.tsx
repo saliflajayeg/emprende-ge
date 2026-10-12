@@ -2,9 +2,11 @@ import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ldb } from '../cloud/localdb'
 import { useBusiness } from '../cloud/business'
-import { money, monthLabel, currentMonthKey, monthKey } from '../lib/format'
-import { sumIn, byCategory, monthlySeries } from '../lib/analytics'
-import { reportPDF, type PdfBusiness } from '../lib/pdf'
+import { money, monthLabel, currentMonthKey, monthKey, lastMonths } from '../lib/format'
+import { sumIn, byCategory, monthlySeries, pendingTotals } from '../lib/analytics'
+import { reportPDF, creditReportPDF, type PdfBusiness } from '../lib/pdf'
+import { topProducts, topClients, groupByInvoice } from '../lib/salesStats'
+import { paymentSummary } from '../lib/invoiceLedger'
 import { downloadCSV } from '../lib/csv'
 import { Card, Button, Select, Input, StatCard } from '../components/ui'
 import { DonutChart, CashFlowChart } from '../components/charts'
@@ -16,20 +18,55 @@ export default function Reports() {
   const bid = current?.id ?? ''
   const txs = useLiveQuery(() => (bid ? ldb.transactions.where('businessId').equals(bid).toArray() : []), [bid])
   const categories = useLiveQuery(() => (bid ? ldb.categories.where('businessId').equals(bid).toArray() : []), [bid])
+  const invoices = useLiveQuery(() => (bid ? ldb.invoices.where('businessId').equals(bid).toArray() : []), [bid])
   const [scope, setScope] = useState<Scope>('month')
   const [m, setM] = useState(currentMonthKey())
 
-  const filtered = useMemo(() => {
-    if (!txs) return []
-    const now = new Date()
-    return txs.filter((t) => {
-      if (scope === 'month') return monthKey(t.date) === m
-      if (scope === 'year') return t.date.startsWith(String(now.getFullYear()))
-      return true
-    })
-  }, [txs, scope, m])
+  const inScope = useMemo(() => {
+    const year = String(new Date().getFullYear())
+    return (date: string) => (scope === 'month' ? monthKey(date) === m : scope === 'year' ? date.startsWith(year) : true)
+  }, [scope, m])
+  const filtered = useMemo(() => (txs ?? []).filter((t) => inScope(t.date)), [txs, inScope])
+  const scopedInvoices = useMemo(() => (invoices ?? []).filter((i) => inScope(i.date)), [invoices, inScope])
 
-  if (!txs || !categories) return <div className="text-slate-400">Cargando…</div>
+  if (!txs || !categories || !invoices) return <div className="text-slate-400">Cargando…</div>
+
+  const products = topProducts(scopedInvoices, 8)
+  const clients = topClients(scopedInvoices, txs, 5)
+  const maxProduct = Math.max(1, ...products.map((p) => p.revenue))
+
+  // Informe para crédito: últimos 12 meses
+  function exportCredit() {
+    if (!current || !txs || !invoices) return
+    const months = lastMonths(12)
+    const from = `${months[0]}-01`
+    const inv12 = invoices.filter((i) => i.docType !== 'quote' && i.date >= from)
+    const byInv = groupByInvoice(txs)
+    const sums = inv12.map((i) => paymentSummary(i, byInv.get(i.id) ?? []))
+    const totalInv = sums.reduce((s, x) => s + x.total, 0)
+    const paidInv = sums.reduce((s, x) => s + x.paid, 0)
+    const perClient = new Map<string, number>()
+    for (const i of inv12) if (i.contactId) perClient.set(i.contactId, (perClient.get(i.contactId) ?? 0) + 1)
+    creditReportPDF(
+      {
+        periodLabel: `${monthLabel(months[0])} – ${monthLabel(months[months.length - 1])}`,
+        months: months.map((ym) => ({
+          label: monthLabel(ym),
+          sales: sumIn(txs, 'income', ym),
+          collected: txs.filter((t) => t.kind === 'income' && t.status === 'paid' && monthKey(t.date) === ym).reduce((s, t) => s + t.amount, 0),
+          expenses: sumIn(txs, 'expense', ym),
+        })),
+        invoicesCount: inv12.length,
+        clientsCount: perClient.size,
+        repeatClients: [...perClient.values()].filter((n) => n >= 2).length,
+        collectionRate: totalInv > 0 ? (paidInv / totalInv) * 100 : 0,
+        receivables: pendingTotals(txs).toCollect,
+        topProducts: topProducts(inv12, 5),
+        ownerName: current.ownerName,
+      },
+      { businessName: current.name, sector: current.sector, address: current.address, phone: current.phone, currency: current.currency, logo: current.logo },
+    )
+  }
 
   const income = sumIn(filtered, 'income')
   const expense = sumIn(filtered, 'expense')
@@ -118,6 +155,57 @@ export default function Reports() {
         <StatCard label="Gastos" value={money(expense)} tone="bad" />
         <StatCard label="Beneficio neto" value={money(net)} tone={net >= 0 ? 'good' : 'bad'} />
       </div>
+
+      {/* Más vendido y mejores clientes (salen de las facturas) */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <h2 className="mb-3 font-semibold text-slate-800">🏆 Lo más vendido</h2>
+          {products.length === 0 ? (
+            <p className="text-sm text-slate-400">Aparecerá cuando hagas facturas en este periodo.</p>
+          ) : (
+            <div className="space-y-2.5">
+              {products.map((p, i) => (
+                <div key={p.name}>
+                  <div className="flex justify-between gap-2 text-sm">
+                    <span className="truncate text-slate-700"><span className="text-slate-400">{i + 1}.</span> {p.name} <span className="text-xs text-slate-400">× {Math.round(p.qty)}</span></span>
+                    <span className="ge-nums shrink-0 font-medium">{money(p.revenue)}</span>
+                  </div>
+                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                    <div className="h-full rounded-full bg-teal-500" style={{ width: `${Math.round((p.revenue / maxProduct) * 100)}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+        <Card>
+          <h2 className="mb-3 font-semibold text-slate-800">⭐ Mejores clientes</h2>
+          {clients.length === 0 ? (
+            <p className="text-sm text-slate-400">Aparecerá cuando factures a clientes con nombre.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {clients.map((c) => (
+                <li key={c.contactId} className="flex items-center justify-between gap-2 py-2 text-sm">
+                  <div className="min-w-0">
+                    <div className="truncate font-medium text-slate-800">{c.name}</div>
+                    <div className="text-xs text-slate-400">{c.count} factura{c.count > 1 ? 's' : ''}{c.owed > 0 ? ` · debe ${money(c.owed)}` : ''}</div>
+                  </div>
+                  <span className="ge-nums shrink-0 font-medium">{money(c.bought)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </div>
+
+      {/* Informe para crédito */}
+      <Card className="flex flex-wrap items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <h2 className="font-semibold text-slate-800">🏦 Informe para pedir un crédito</h2>
+          <p className="text-sm text-slate-500">Tu historial de los últimos 12 meses (ventas, cobros, gastos, clientes) en un PDF para enseñar a un banco o microcrédito.</p>
+        </div>
+        <Button onClick={exportCredit}>⬇ Descargar informe</Button>
+      </Card>
 
       {monthly.length > 1 && (
         <Card>

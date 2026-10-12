@@ -5,7 +5,7 @@ import { useBusiness, type Business } from '../cloud/business'
 import { money, todayISO } from '../lib/format'
 import { invoicePDF, invoiceTotals, type InvoicePay, type PdfBusiness } from '../lib/pdf'
 import { shareInvoice } from '../lib/share'
-import { addInvoicePayment, linkedTxs, paymentSummary, syncInvoiceLedger } from '../lib/invoiceLedger'
+import { addInvoicePayment, linkedTxs, paymentSummary, syncInvoiceLedger, WALK_IN } from '../lib/invoiceLedger'
 import { Button, Field, Input, Select, Textarea } from './ui'
 
 export const pdfBiz = (b: Business): PdfBusiness => ({
@@ -19,7 +19,7 @@ export const pdfBiz = (b: Business): PdfBusiness => ({
 
 const DOC_LABEL: Record<DocType, string> = { invoice: 'Factura', receipt: 'Recibo', quote: 'Presupuesto' }
 const DOC_ICON: Record<DocType, string> = { invoice: '🧾', receipt: '🧻', quote: '📄' }
-export const WALK_IN = 'Cliente de mostrador'
+export { WALK_IN }
 const METHODS = ['Efectivo', 'Transferencia', 'Pago móvil', 'Tarjeta', 'Otro']
 
 function nextNumber(existing: Invoice[], prefix = ''): string {

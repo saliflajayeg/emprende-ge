@@ -284,6 +284,96 @@ export function reportPDF(r: ReportData, s: PdfBusiness) {
   doc.save(`Informe-${r.periodLabel.replace(/\s+/g, '-')}.pdf`)
 }
 
+// Informe para pedir crédito: historial de 12 meses + indicadores del negocio.
+export interface CreditReport {
+  periodLabel: string
+  months: { label: string; sales: number; collected: number; expenses: number }[]
+  invoicesCount: number
+  clientsCount: number
+  repeatClients: number
+  collectionRate: number // % cobrado sobre lo facturado
+  receivables: number // lo que le deben hoy
+  topProducts: { name: string; qty: number; revenue: number }[]
+  ownerName?: string
+}
+
+export function creditReportPDF(r: CreditReport, s: PdfBusiness) {
+  const doc = new jsPDF()
+  const cur = s.currency
+  header(doc, s, 'HISTORIAL')
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  doc.setTextColor(...GRAY)
+  doc.text('Informe de actividad del negocio', 196, 28, { align: 'right' })
+  doc.text(r.periodLabel, 196, 33, { align: 'right' })
+  if (r.ownerName) doc.text(`Titular: ${r.ownerName}`, 14, 44)
+
+  const sales = r.months.reduce((a, m) => a + m.sales, 0)
+  const collected = r.months.reduce((a, m) => a + m.collected, 0)
+  const expenses = r.months.reduce((a, m) => a + m.expenses, 0)
+  const active = r.months.filter((m) => m.sales > 0).length
+  const avg = active ? sales / active : 0
+  const net = sales - expenses
+
+  autoTable(doc, {
+    startY: 50,
+    head: [['Indicador', { content: 'Valor', styles: { halign: 'right' } }]],
+    body: [
+      ['Ventas totales (12 meses)', `${moneyPlain(sales)} ${cur}`],
+      ['Venta media por mes activo', `${moneyPlain(avg)} ${cur}`],
+      ['Cobrado (dinero recibido)', `${moneyPlain(collected)} ${cur}`],
+      ['Gastos totales', `${moneyPlain(expenses)} ${cur}`],
+      ['Resultado (ventas menos gastos)', `${moneyPlain(net)} ${cur}`],
+      ['Meses con actividad', `${active} de ${r.months.length}`],
+      ['Facturas emitidas', String(r.invoicesCount)],
+      ['Clientes distintos', String(r.clientsCount)],
+      ['Clientes que repiten', String(r.repeatClients)],
+      ['Porcentaje cobrado de lo facturado', `${Math.round(r.collectionRate)} %`],
+      ['Pendiente de cobro hoy', `${moneyPlain(r.receivables)} ${cur}`],
+    ],
+    headStyles: { fillColor: TEAL },
+    columnStyles: { 0: { fontStyle: 'bold', textColor: DARK }, 1: { halign: 'right' } },
+    styles: { fontSize: 10 },
+  })
+
+  // @ts-expect-error runtime
+  let y = doc.lastAutoTable.finalY + 6
+  autoTable(doc, {
+    startY: y,
+    head: [['Mes', ...['Ventas', 'Cobrado', 'Gastos', 'Resultado'].map((h) => ({ content: h, styles: { halign: 'right' as const } }))]],
+    body: r.months.map((m) => [m.label, moneyPlain(m.sales), moneyPlain(m.collected), moneyPlain(m.expenses), moneyPlain(m.sales - m.expenses)]),
+    foot: [['Total', ...[sales, collected, expenses, net].map((v) => ({ content: moneyPlain(v), styles: { halign: 'right' as const } }))]],
+    headStyles: { fillColor: TEAL },
+    footStyles: { fillColor: [240, 253, 250], textColor: DARK, fontStyle: 'bold' },
+    columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' } },
+    styles: { fontSize: 9 },
+  })
+
+  if (r.topProducts.length) {
+    // @ts-expect-error runtime
+    y = doc.lastAutoTable.finalY + 6
+    autoTable(doc, {
+      startY: y,
+      head: [['Lo más vendido', ...['Cantidad', 'Importe'].map((h) => ({ content: h, styles: { halign: 'right' as const } }))]],
+      body: r.topProducts.map((p) => [p.name, moneyPlain(p.qty), `${moneyPlain(p.revenue)} ${cur}`]),
+      headStyles: { fillColor: TEAL },
+      columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' } },
+      styles: { fontSize: 9 },
+    })
+  }
+
+  const pages = doc.getNumberOfPages()
+  const today = new Date().toISOString().slice(0, 10)
+  for (let p = 1; p <= pages; p++) {
+    doc.setPage(p)
+    doc.setFontSize(8)
+    doc.setTextColor(...GRAY)
+    doc.text(`Datos registrados por el negocio en GEmprende · Generado el ${formatDate(today)}`, 105, 291, { align: 'center' })
+  }
+  doc.save(`Historial-${s.businessName.replace(/\s+/g, '-')}-${today}.pdf`)
+}
+
 // Informe mensual de alquileres: cobros por inquilino, gastos y la diferencia.
 export interface RentalsReport {
   periodLabel: string
@@ -312,7 +402,7 @@ function buildRentalsReportDoc(r: RentalsReport, s: PdfBusiness): { doc: jsPDF; 
     body: [
       ['Cobrado', `${moneyPlain(r.totalCollected)} ${cur}`],
       ['Gastos', `${moneyPlain(r.totalExpense)} ${cur}`],
-      ['Diferencia (ingresos − gastos)', `${moneyPlain(net)} ${cur}`],
+      ['Diferencia (ingresos menos gastos)', `${moneyPlain(net)} ${cur}`],
     ],
     theme: 'plain',
     columnStyles: {

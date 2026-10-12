@@ -11,6 +11,9 @@ import { todayISO } from './format'
 //  movimientos enlazados) no se tocan para no duplicar ingresos.
 // ============================================================
 
+// Nombre que se usa cuando la venta es a un cliente sin identificar.
+export const WALK_IN = 'Cliente de mostrador'
+
 export async function linkedTxs(bid: string, invoiceId: string): Promise<Transaction[]> {
   return ldb.transactions.where('businessId').equals(bid).filter((t) => t.invoiceId === invoiceId).toArray()
 }
@@ -104,6 +107,30 @@ export async function addInvoicePayment(
     createdAt: new Date().toISOString(),
   } as Transaction)
   await syncInvoiceLedger(bid, inv)
+}
+
+// Cobra la deuda de un cliente repartiendo el importe entre sus facturas
+// pendientes, de la más antigua a la más reciente. Devuelve lo aplicado.
+export async function payClientDebt(
+  bid: string,
+  contactId: string,
+  amount: number,
+  opts: { date?: string; method?: string } = {},
+): Promise<number> {
+  const invs = (await ldb.invoices.where('businessId').equals(bid).filter((i) => i.contactId === contactId && i.docType !== 'quote').toArray())
+    .sort((a, b) => (a.date + a.createdAt).localeCompare(b.date + b.createdAt))
+  let left = Math.round(amount)
+  let applied = 0
+  for (const inv of invs) {
+    if (left <= 0) break
+    const { remaining } = paymentSummary(inv, await linkedTxs(bid, inv.id))
+    if (remaining <= 0) continue
+    const pay = Math.min(left, remaining)
+    await addInvoicePayment(bid, inv, pay, opts)
+    left -= pay
+    applied += pay
+  }
+  return applied
 }
 
 // Borra la factura junto con sus cobros y su deuda.

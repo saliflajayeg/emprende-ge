@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ldb, type Invoice, type DocType, type Transaction } from '../cloud/localdb'
+import { ldb, type Contact, type Invoice, type DocType, type Transaction } from '../cloud/localdb'
+import ClientProfile from '../components/ClientProfile'
 import { useBusiness } from '../cloud/business'
 import { usePerms } from '../cloud/perms'
 import { money, formatDate, todayISO } from '../lib/format'
@@ -79,6 +80,7 @@ export default function Invoices({ mode = 'invoices' }: { mode?: 'invoices' | 'q
   const contacts = useLiveQuery(() => (bid ? ldb.contacts.where('businessId').equals(bid).toArray() : []), [bid])
   const [modal, setModal] = useState<null | { inv?: Invoice }>(null)
   const [paying, setPaying] = useState<null | { inv: Invoice; remaining: number }>(null)
+  const [profile, setProfile] = useState<Contact | null>(null)
   const [sharing, setSharing] = useState<string | null>(null)
   const [filter, setFilter] = useState<Filter>('all')
   const [query, setQuery] = useState('')
@@ -187,7 +189,13 @@ export default function Invoices({ mode = 'invoices' }: { mode?: 'invoices' | 'q
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="text-xs uppercase text-slate-400">{DOC_LABEL[inv.docType]} · {inv.number}</div>
-                    <div className="truncate font-semibold text-slate-800">{inv.clientName}</div>
+                    {inv.contactId && contacts?.some((c) => c.id === inv.contactId) ? (
+                      <button onClick={() => setProfile(contacts?.find((c) => c.id === inv.contactId) ?? null)} className="block max-w-full truncate text-left font-semibold text-teal-800 underline decoration-teal-200 underline-offset-2">
+                        {inv.clientName}
+                      </button>
+                    ) : (
+                      <div className="truncate font-semibold text-slate-800">{inv.clientName}</div>
+                    )}
                     <div className="text-sm text-slate-500">{formatDate(inv.date)}</div>
                   </div>
                   {isQuotes ? (
@@ -232,6 +240,9 @@ export default function Invoices({ mode = 'invoices' }: { mode?: 'invoices' | 'q
       <Modal open={modal !== null} onClose={() => setModal(null)}
         title={modal?.inv ? 'Editar documento' : isQuotes ? 'Nuevo presupuesto' : 'Nueva factura'}>
         {modal && <InvoiceForm existing={modal.inv} allowedTypes={allowedTypes} defaultDocType={defaultDocType} onDone={() => setModal(null)} />}
+      </Modal>
+      <Modal open={profile !== null} onClose={() => setProfile(null)} title="Ficha del cliente">
+        {profile && <ClientProfile contact={profile} onEdit={() => setProfile(null)} />}
       </Modal>
       <Modal open={paying !== null} onClose={() => setPaying(null)} title="Registrar pago">
         {paying && <PaymentForm inv={paying.inv} remaining={paying.remaining} onDone={() => setPaying(null)} />}

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
+import { useNavigate } from 'react-router-dom'
 import { ldb, removeRow, type Transaction, type Kind } from '../cloud/localdb'
 import { useBusiness } from '../cloud/business'
 import { usePerms } from '../cloud/perms'
@@ -22,6 +23,7 @@ export default function Transactions({
   emptyHint?: string
 } = {}) {
   const { current } = useBusiness()
+  const navigate = useNavigate()
   const bid = current?.id ?? ''
   const { canDelete } = usePerms()
   const txs = useLiveQuery(() => (bid ? ldb.transactions.where('businessId').equals(bid).toArray() : []), [bid])
@@ -136,21 +138,28 @@ export default function Transactions({
                 <tr key={t.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
                   <td className="whitespace-nowrap px-4 py-3 text-slate-500">{formatDate(t.date)}</td>
                   <td className="px-4 py-3">
-                    <div className="font-medium text-slate-800">{t.description || catName(t.categoryId)}</div>
+                    <div className="font-medium text-slate-800">{t.invoiceId && <span title="Viene de una factura">🧾 </span>}{t.description || catName(t.categoryId)}</div>
                     {contactName(t.contactId) && <div className="text-xs text-slate-400">{contactName(t.contactId)}</div>}
                   </td>
                   <td className="px-4 py-3 text-slate-500">{catName(t.categoryId)}</td>
                   <td className="px-4 py-3">
-                    <button onClick={() => togglePaid(t)} title="Cambiar estado"><Badge status={t.status} /></button>
+                    {t.invoiceId
+                      ? <Badge status={t.status} />
+                      : <button onClick={() => togglePaid(t)} title="Cambiar estado"><Badge status={t.status} /></button>}
                   </td>
                   <td className={`ge-nums px-4 py-3 text-right font-semibold ${t.kind === 'income' ? 'text-teal-600' : 'text-red-600'}`}>
                     {t.kind === 'income' ? '+' : '−'}{money(t.amount)}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-right">
-                    <div className="flex justify-end gap-0.5">
-                      <IconButton onClick={() => setModal({ kind: t.kind, tx: t })} title="Editar">✎</IconButton>
-                      {canDelete && <IconButton onClick={() => remove(t.id)} title="Eliminar" className="text-slate-400 hover:text-red-600">🗑</IconButton>}
-                    </div>
+                    {t.invoiceId ? (
+                      // Los cobros/deudas de una factura se gestionan desde Facturas
+                      <button onClick={() => navigate('/facturas')} className="text-xs font-medium text-teal-700">Ver factura ›</button>
+                    ) : (
+                      <div className="flex justify-end gap-0.5">
+                        <IconButton onClick={() => setModal({ kind: t.kind, tx: t })} title="Editar">✎</IconButton>
+                        {canDelete && <IconButton onClick={() => remove(t.id)} title="Eliminar" className="text-slate-400 hover:text-red-600">🗑</IconButton>}
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
