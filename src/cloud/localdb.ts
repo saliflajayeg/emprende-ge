@@ -42,6 +42,8 @@ export interface InvoiceItem { description: string; qty: number; price: number }
 export interface Invoice extends Base {
   docType: DocType; number: string; contactId?: string; clientName: string; clientDetails: string
   date: string; items: InvoiceItem[]; taxRate: number; notes: string; status: TxStatus; createdAt: string
+  origin?: 'app' | 'talonario' // 'talonario' = factura antigua en papel registrada a posteriori
+  photo?: string // foto de la hoja del talonario (dataURL comprimido)
 }
 export interface Item extends Base {
   kind: ItemKind; name: string; price: number; category: string; unit: string

@@ -37,7 +37,7 @@ export interface ProductStat { name: string; qty: number; revenue: number }
 export function topProducts(invoices: Invoice[], limit = 10): ProductStat[] {
   const m = new Map<string, ProductStat>()
   for (const inv of invoices) {
-    if (inv.docType === 'quote') continue
+    if (inv.docType === 'quote' || inv.origin === 'talonario') continue // las antiguas solo tienen el total
     for (const it of inv.items) {
       const name = it.description.trim()
       if (!name) continue

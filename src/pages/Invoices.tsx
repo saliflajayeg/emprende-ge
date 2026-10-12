@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ldb, type Contact, type Invoice, type DocType, type Transaction } from '../cloud/localdb'
 import ClientProfile from '../components/ClientProfile'
+import OldInvoiceForm from '../components/OldInvoiceForm'
 import { useBusiness } from '../cloud/business'
 import { usePerms } from '../cloud/perms'
 import { money, formatDate, todayISO } from '../lib/format'
@@ -81,6 +82,8 @@ export default function Invoices({ mode = 'invoices' }: { mode?: 'invoices' | 'q
   const [modal, setModal] = useState<null | { inv?: Invoice }>(null)
   const [paying, setPaying] = useState<null | { inv: Invoice; remaining: number }>(null)
   const [profile, setProfile] = useState<Contact | null>(null)
+  const [oldOpen, setOldOpen] = useState(false)
+  const [viewPhoto, setViewPhoto] = useState<Invoice | null>(null)
   const [sharing, setSharing] = useState<string | null>(null)
   const [filter, setFilter] = useState<Filter>('all')
   const [query, setQuery] = useState('')
@@ -144,7 +147,10 @@ export default function Invoices({ mode = 'invoices' }: { mode?: 'invoices' | 'q
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-slate-800">{title}</h1>
-        <Button onClick={() => setModal({})}>+ {isQuotes ? 'Nuevo presupuesto' : 'Nueva factura'}</Button>
+        <div className="flex flex-wrap gap-2">
+          {!isQuotes && <Button variant="outline" onClick={() => setOldOpen(true)}>📒 Facturas antiguas</Button>}
+          <Button onClick={() => setModal({})}>+ {isQuotes ? 'Nuevo presupuesto' : 'Nueva factura'}</Button>
+        </div>
       </div>
 
       {!isQuotes && rows.length > 0 && (
@@ -188,7 +194,9 @@ export default function Invoices({ mode = 'invoices' }: { mode?: 'invoices' | 'q
               <Card key={inv.id}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <div className="text-xs uppercase text-slate-400">{DOC_LABEL[inv.docType]} · {inv.number}</div>
+                    <div className="text-xs uppercase text-slate-400">
+                      {inv.origin === 'talonario' ? '📒 Talonario' : DOC_LABEL[inv.docType]} · {inv.number}
+                    </div>
                     {inv.contactId && contacts?.some((c) => c.id === inv.contactId) ? (
                       <button onClick={() => setProfile(contacts?.find((c) => c.id === inv.contactId) ?? null)} className="block max-w-full truncate text-left font-semibold text-teal-800 underline decoration-teal-200 underline-offset-2">
                         {inv.clientName}
@@ -227,7 +235,9 @@ export default function Invoices({ mode = 'invoices' }: { mode?: 'invoices' | 'q
                   {sharing === inv.id ? 'Preparando…' : '📲 Enviar por WhatsApp'}
                 </Button>
                 <div className="mt-2 flex items-center gap-1">
-                  <Button variant="outline" className="flex-1" onClick={() => current && invoicePDF(inv, pdfBiz(current), payOf(inv, s))}>⬇ PDF</Button>
+                  {inv.photo
+                    ? <Button variant="outline" className="flex-1" onClick={() => setViewPhoto(inv)}>📷 Ver foto</Button>
+                    : <Button variant="outline" className="flex-1" onClick={() => current && invoicePDF(inv, pdfBiz(current), payOf(inv, s))}>⬇ PDF</Button>}
                   <IconButton onClick={() => setModal({ inv })} title="Editar">✎</IconButton>
                   {canDelete && <IconButton onClick={() => remove(inv)} title="Eliminar" className="text-slate-400 hover:text-red-600">🗑</IconButton>}
                 </div>
@@ -240,6 +250,17 @@ export default function Invoices({ mode = 'invoices' }: { mode?: 'invoices' | 'q
       <Modal open={modal !== null} onClose={() => setModal(null)}
         title={modal?.inv ? 'Editar documento' : isQuotes ? 'Nuevo presupuesto' : 'Nueva factura'}>
         {modal && <InvoiceForm existing={modal.inv} allowedTypes={allowedTypes} defaultDocType={defaultDocType} onDone={() => setModal(null)} />}
+      </Modal>
+      <Modal open={oldOpen} onClose={() => setOldOpen(false)} title="📒 Facturas antiguas del talonario">
+        {oldOpen && <OldInvoiceForm onDone={() => setOldOpen(false)} />}
+      </Modal>
+      <Modal open={viewPhoto !== null} onClose={() => setViewPhoto(null)} title={viewPhoto ? `Talonario · ${viewPhoto.number}` : ''}>
+        {viewPhoto?.photo && (
+          <div className="space-y-3">
+            <img src={viewPhoto.photo} alt="Hoja del talonario" className="w-full rounded-lg" />
+            <a href={viewPhoto.photo} download={`talonario-${viewPhoto.number}.jpg`} className="block text-center text-sm font-medium text-teal-700">⬇ Descargar foto</a>
+          </div>
+        )}
       </Modal>
       <Modal open={profile !== null} onClose={() => setProfile(null)} title="Ficha del cliente">
         {profile && <ClientProfile contact={profile} onEdit={() => setProfile(null)} />}

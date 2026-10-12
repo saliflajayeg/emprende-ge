@@ -24,7 +24,7 @@ const METHODS = ['Efectivo', 'Transferencia', 'Pago móvil', 'Tarjeta', 'Otro']
 
 function nextNumber(existing: Invoice[], prefix = ''): string {
   const year = new Date().getFullYear()
-  const n = existing.filter((i) => i.number.includes(String(year)) && i.number.startsWith(prefix)).length + 1
+  const n = existing.filter((i) => i.origin !== 'talonario' && i.number.includes(String(year)) && i.number.startsWith(prefix)).length + 1
   return `${prefix}${year}-${String(n).padStart(3, '0')}`
 }
 

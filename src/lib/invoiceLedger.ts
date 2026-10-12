@@ -1,4 +1,4 @@
-import { ldb, removeRow, type Category, type Invoice, type Transaction } from '../cloud/localdb'
+import { ldb, removeRow, type Category, type Contact, type Invoice, type Transaction } from '../cloud/localdb'
 import { invoiceTotals } from './pdf'
 import { todayISO } from './format'
 
@@ -131,6 +131,46 @@ export async function payClientDebt(
     applied += pay
   }
   return applied
+}
+
+// Registra una factura ANTIGUA del talonario: se guarda con su fecha real y entra
+// en la caja de ese mes (cobrada, a deber o con parte pagada).
+export async function registerOldInvoice(
+  bid: string,
+  d: { date: string; total: number; clientName?: string; number?: string; photo?: string; pay: 'paid' | 'debt' | 'partial'; paidAmount?: number },
+): Promise<Invoice> {
+  const name = (d.clientName ?? '').trim()
+  let contactId: string | undefined
+  if (name && name !== WALK_IN) {
+    const clients = await ldb.contacts.where('businessId').equals(bid).filter((c) => c.type === 'client').toArray()
+    const found = clients.find((c) => c.name.trim().toLowerCase() === name.toLowerCase())
+    contactId = found?.id ?? ((await ldb.contacts.add({ type: 'client', name, phone: '', email: '', notes: '', createdAt: new Date().toISOString() } as Contact)) as string)
+  }
+  let number = (d.number ?? '').trim()
+  if (!number) {
+    const sameDay = await ldb.invoices.where('businessId').equals(bid).filter((i) => i.origin === 'talonario' && i.date === d.date).count()
+    number = `T-${d.date}-${sameDay + 1}`
+  }
+  const id = (await ldb.invoices.add({
+    docType: 'invoice',
+    number,
+    date: d.date,
+    clientName: name || WALK_IN,
+    clientDetails: '',
+    contactId,
+    items: [{ description: 'Factura del talonario', qty: 1, price: Math.round(d.total) }],
+    taxRate: 0,
+    notes: '',
+    status: 'pending',
+    origin: 'talonario',
+    photo: d.photo,
+    createdAt: new Date().toISOString(),
+  } as Invoice)) as string
+  const inv = (await ldb.invoices.get(id)) as Invoice
+  if (d.pay === 'paid') await addInvoicePayment(bid, inv, d.total, { date: d.date })
+  else if (d.pay === 'partial' && (d.paidAmount ?? 0) > 0) await addInvoicePayment(bid, inv, d.paidAmount ?? 0, { date: d.date })
+  else await syncInvoiceLedger(bid, inv)
+  return (await ldb.invoices.get(id)) as Invoice
 }
 
 // Borra la factura junto con sus cobros y su deuda.
