@@ -7,7 +7,8 @@ import { invoicePDF, invoiceTotals, type InvoicePay, type PdfBusiness } from '..
 import { shareInvoice } from '../lib/share'
 import { addInvoicePayment, linkedTxs, paymentSummary, syncInvoiceLedger, WALK_IN } from '../lib/invoiceLedger'
 import { Button, Field, Input, Select, Textarea } from './ui'
-import { Receipt, Note, User, Phone, Storefront, Plus, Minus, X, CheckCircle, Clock, HandCoins, CaretDown, WhatsappLogo, FloppyDisk, FilePdf, MagnifyingGlass } from '@phosphor-icons/react'
+import { canPickContacts, pickContacts, phoneKey } from '../lib/phoneContacts'
+import { Receipt, Note, User, Phone, Storefront, Plus, Minus, X, CheckCircle, Clock, HandCoins, CaretDown, WhatsappLogo, FloppyDisk, FilePdf, MagnifyingGlass, AddressBook } from '@phosphor-icons/react'
 
 export const pdfBiz = (b: Business): PdfBusiness => ({
   businessName: b.name,
@@ -102,6 +103,16 @@ export default function InvoiceForm({
     const c = contacts?.find((x) => x.name.trim().toLowerCase() === v.trim().toLowerCase())
     if (c) { setContactId(c.id); if (c.phone) setClientPhone(c.phone) }
     else setContactId('')
+  }
+  // Elegir el cliente de la agenda del teléfono (si ya existe en la app, se reutiliza)
+  async function fromPhoneBook() {
+    const [p] = await pickContacts(false)
+    if (!p) return
+    const key = phoneKey(p.phone)
+    const c = contacts?.find((x) => (key && phoneKey(x.phone) === key) || x.name.trim().toLowerCase() === p.name.toLowerCase())
+    setClientName(c?.name ?? p.name)
+    setClientPhone(p.phone || c?.phone || '')
+    setContactId(c?.id ?? '')
   }
   const walkIn = clientName.trim() === WALK_IN
 
@@ -236,7 +247,13 @@ export default function InvoiceForm({
         <div className="space-y-2.5">
           <div className="relative">
             <User size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <Input list="ge-clients" value={clientName} onChange={(e) => onClientName(e.target.value)} placeholder="Nombre del cliente" className="pl-10" />
+            <Input list="ge-clients" value={clientName} onChange={(e) => onClientName(e.target.value)} placeholder="Nombre del cliente" className={canPickContacts() ? 'pl-10 pr-[6.5rem]' : 'pl-10'} />
+            {canPickContacts() && (
+              <button type="button" onClick={fromPhoneBook}
+                className="absolute right-1.5 top-1/2 flex min-h-9 -translate-y-1/2 items-center gap-1 rounded-lg bg-teal-50 px-2.5 text-xs font-semibold text-teal-800 transition-transform active:scale-95">
+                <AddressBook size={18} weight="duotone" /> Agenda
+              </button>
+            )}
           </div>
           {!walkIn && (
             <div className="relative">

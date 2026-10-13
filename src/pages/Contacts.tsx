@@ -5,7 +5,8 @@ import { useBusiness } from '../cloud/business'
 import { usePerms } from '../cloud/perms'
 import { Button, Card, Modal, Field, Input, Textarea, EmptyState, IconButton } from '../components/ui'
 import ClientProfile from '../components/ClientProfile'
-import { Phone, PencilSimple, Trash } from '@phosphor-icons/react'
+import { Phone, PencilSimple, Trash, Plus, MagnifyingGlass, AddressBook, CheckCircle } from '@phosphor-icons/react'
+import { canPickContacts, pickContacts, phoneKey } from '../lib/phoneContacts'
 import { clientStats } from '../lib/salesStats'
 import { money } from '../lib/format'
 
@@ -36,13 +37,20 @@ function ContactForm({ existing, onDone }: { existing?: Contact; onDone: () => v
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1">
+      <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1">
         <button onClick={() => set('type', 'client')}
           className={`rounded-md py-2 text-sm font-semibold ${form.type === 'client' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}>Cliente</button>
         <button onClick={() => set('type', 'provider')}
           className={`rounded-md py-2 text-sm font-semibold ${form.type === 'provider' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-500'}`}>Proveedor</button>
       </div>
-      <Field label="Nombre *"><Input value={form.name} onChange={(e) => set('name', e.target.value)} autoFocus /></Field>
+      {!existing && canPickContacts() && (
+        <button type="button"
+          onClick={async () => { const [p] = await pickContacts(false); if (p) setForm((f) => ({ ...f, name: p.name, phone: p.phone, email: p.email || f.email })) }}
+          className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-teal-50 text-sm font-semibold text-teal-800 transition-transform active:scale-[0.98]">
+          <AddressBook size={20} weight="duotone" /> Elegir de la agenda del teléfono
+        </button>
+      )}
+      <Field label="Nombre *"><Input value={form.name} onChange={(e) => set('name', e.target.value)} autoFocus={!canPickContacts()} /></Field>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Teléfono"><Input value={form.phone} onChange={(e) => set('phone', e.target.value)} placeholder="+240 …" /></Field>
         <Field label="Email"><Input value={form.email} onChange={(e) => set('email', e.target.value)} /></Field>
@@ -67,6 +75,7 @@ export default function Contacts() {
   const [tab, setTab] = useState<ContactType>('client')
   const [onlyOwing, setOnlyOwing] = useState(false)
   const [query, setQuery] = useState('')
+  const [notice, setNotice] = useState('')
 
   if (!contacts || !invoices || !ledger) return <div className="text-slate-400">Cargando…</div>
   const stats = clientStats(invoices, ledger)
@@ -85,20 +94,63 @@ export default function Contacts() {
     if (confirm('¿Eliminar este contacto?')) await removeRow('contacts', id)
   }
 
+  // Importa varios contactos de la agenda; salta los que ya están (mismo teléfono o nombre)
+  async function importFromPhoneBook() {
+    const picked = await pickContacts(true)
+    if (!picked.length || !contacts) return
+    const phones = new Set(contacts.map((c) => phoneKey(c.phone)).filter(Boolean))
+    const names = new Set(contacts.map((c) => c.name.trim().toLowerCase()))
+    let added = 0
+    for (const p of picked) {
+      const key = phoneKey(p.phone)
+      if ((key && phones.has(key)) || names.has(p.name.toLowerCase())) continue
+      await ldb.contacts.add({ type: tab, name: p.name, phone: p.phone, email: p.email, notes: '', createdAt: new Date().toISOString() } as Contact)
+      if (key) phones.add(key)
+      names.add(p.name.toLowerCase())
+      added++
+    }
+    const skipped = picked.length - added
+    const who = tab === 'client' ? 'cliente' : 'proveedor'
+    setNotice(
+      added
+        ? `${added} ${who}${added > 1 ? (tab === 'client' ? 's' : 'es') : ''} añadido${added > 1 ? 's' : ''}${skipped ? ` · ${skipped} ya estaba${skipped > 1 ? 'n' : ''}` : ''}`
+        : 'Esos contactos ya estaban en la app',
+    )
+    setTimeout(() => setNotice(''), 4000)
+  }
+
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-slate-800">Contactos</h1>
-        <Button onClick={() => setModal({})}>+ Nuevo contacto</Button>
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <h1 className="text-[1.7rem] font-bold leading-tight text-slate-900">Contactos</h1>
+          <p className="text-sm text-slate-500">Tus clientes y proveedores</p>
+        </div>
+        <Button onClick={() => setModal({})} className="shrink-0"><Plus size={18} weight="bold" /> Nuevo</Button>
       </div>
 
-      <div className="inline-flex gap-1 rounded-lg bg-slate-100 p-1">
+      {canPickContacts() && (
+        <button onClick={importFromPhoneBook} className="flex w-full items-center gap-3 rounded-2xl bg-teal-50 p-3.5 text-left ring-1 ring-teal-100 transition-transform active:scale-[0.99]">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white text-teal-700 shadow-sm"><AddressBook size={24} weight="duotone" /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold text-teal-900">Añadir desde la agenda del teléfono</span>
+            <span className="block text-xs text-teal-800/80">Elige uno o varios {tab === 'client' ? 'clientes' : 'proveedores'} de tus contactos</span>
+          </span>
+        </button>
+      )}
+      {notice && (
+        <div role="status" className="flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white">
+          <CheckCircle size={18} weight="fill" className="text-teal-300" /> {notice}
+        </div>
+      )}
+
+      <div className="inline-flex gap-1 rounded-xl bg-slate-100 p-1">
         <button onClick={() => setTab('client')}
-          className={`rounded-md px-4 py-1.5 text-sm font-medium ${tab === 'client' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}>
+          className={`min-h-9 rounded-lg px-4 py-1.5 text-sm font-semibold ${tab === 'client' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}>
           Clientes ({contacts.filter((c) => c.type === 'client').length})
         </button>
         <button onClick={() => setTab('provider')}
-          className={`rounded-md px-4 py-1.5 text-sm font-medium ${tab === 'provider' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-500'}`}>
+          className={`min-h-9 rounded-lg px-4 py-1.5 text-sm font-semibold ${tab === 'provider' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-500'}`}>
           Proveedores ({contacts.filter((c) => c.type === 'provider').length})
         </button>
       </div>
@@ -117,11 +169,14 @@ export default function Contacts() {
       )}
 
       {contacts.some((c) => c.type === tab) && (
-        <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por nombre o teléfono…" />
+        <div className="relative">
+          <MagnifyingGlass size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por nombre o teléfono…" className="pl-10" />
+        </div>
       )}
 
       {list.length === 0 ? (
-        <EmptyState image={tab === 'client' ? '/ill/clientes.webp' : undefined} title={tab === 'client' ? 'Aquí verás a tus clientes' : 'Sin proveedores'} hint={tab === 'client' ? 'Se añaden solos cuando haces una factura con su nombre. Verás lo que compra cada uno y quién te debe.' : 'Añade tus proveedores para asociarlos a tus gastos.'} />
+        <EmptyState image={tab === 'client' ? '/ill/clientes.webp' : undefined} title={tab === 'client' ? 'Aquí verás a tus clientes' : 'Sin proveedores'} hint={tab === 'client' ? (canPickContacts() ? 'Añádelos desde la agenda del teléfono o se añadirán solos cuando hagas una factura con su nombre.' : 'Se añaden solos cuando haces una factura con su nombre. Verás lo que compra cada uno y quién te debe.') : 'Añade tus proveedores para asociarlos a tus gastos.'} />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {list.map((c) => {
