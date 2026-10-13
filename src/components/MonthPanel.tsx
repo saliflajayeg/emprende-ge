@@ -6,6 +6,7 @@ import { sumIn, byCategory, monthlySeries } from '../lib/analytics'
 import { paymentSummary } from '../lib/invoiceLedger'
 import { CashFlowChart } from './charts'
 import { Card } from './ui'
+import { CaretLeft, CaretRight, ArrowDownLeft, ArrowUpRight, Receipt, ChartPieSlice, ChartLineUp, ArrowRight } from '@phosphor-icons/react'
 
 function shiftMonth(ym: string, n: number): string {
   const [y, m] = ym.split('-').map(Number)
@@ -37,76 +38,100 @@ export default function MonthPanel({ txs, categories, invoices }: { txs: Transac
   const cats = byCategory(txs, categories, 'expense', m).slice(0, 5)
   const maxCat = Math.max(1, ...cats.map((c) => c.amount))
 
+  const label = monthLabel(m).charAt(0).toUpperCase() + monthLabel(m).slice(1)
+  const spentPct = income > 0 ? Math.min(100, Math.round((expense / income) * 100)) : expense > 0 ? 100 : 0
+
   return (
-    <Card className="space-y-4">
-      {/* Mes */}
-      <div className="flex items-center justify-between">
-        <button onClick={() => setM(shiftMonth(m, -1))} className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 active:scale-90" aria-label="Mes anterior">‹</button>
-        <div className="text-center">
-          <div className="text-xs uppercase tracking-wide text-slate-400">Contabilidad del mes</div>
-          <div className="font-bold capitalize text-slate-800">{monthLabel(m)}</div>
-          {!isCurrent && <button onClick={() => setM(currentMonthKey())} className="text-xs text-teal-600">Volver a este mes</button>}
-        </div>
-        <button onClick={() => setM(shiftMonth(m, 1))} disabled={isCurrent} className="grid h-9 w-9 place-items-center rounded-lg text-slate-500 active:scale-90 disabled:opacity-30" aria-label="Mes siguiente">›</button>
-      </div>
-
-      {/* Resultado */}
-      <div className="grid grid-cols-3 gap-2 text-center">
-        <div className="rounded-lg bg-slate-50 px-2 py-3">
-          <div className="text-xs text-slate-500">Ingresos</div>
-          <div className="ge-nums text-sm font-bold text-teal-700 sm:text-base">{money(income)}</div>
-        </div>
-        <div className="rounded-lg bg-slate-50 px-2 py-3">
-          <div className="text-xs text-slate-500">Gastos</div>
-          <div className="ge-nums text-sm font-bold text-red-600 sm:text-base">{money(expense)}</div>
-        </div>
-        <div className="rounded-lg bg-slate-50 px-2 py-3">
-          <div className="text-xs text-slate-500">{net >= 0 ? 'Ganancia' : 'Pérdida'}</div>
-          <div className={`ge-nums text-sm font-bold sm:text-base ${net >= 0 ? 'text-slate-800' : 'text-red-600'}`}>{money(net)}</div>
+    <Card className="space-y-5 p-5">
+      {/* Cabecera: título + selector de mes */}
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-lg font-bold text-slate-900">Tu mes</h2>
+        <div className="flex items-center rounded-full bg-slate-100 p-1">
+          <button onClick={() => setM(shiftMonth(m, -1))} className="grid h-8 w-8 place-items-center rounded-full text-slate-600 transition-transform hover:bg-white active:scale-90" aria-label="Mes anterior"><CaretLeft size={16} weight="bold" /></button>
+          <span className="min-w-[7.5rem] px-1 text-center text-sm font-bold text-slate-800">{label}</span>
+          <button onClick={() => setM(shiftMonth(m, 1))} disabled={isCurrent} className="grid h-8 w-8 place-items-center rounded-full text-slate-600 transition-transform hover:bg-white active:scale-90 disabled:opacity-30" aria-label="Mes siguiente"><CaretRight size={16} weight="bold" /></button>
         </div>
       </div>
+      {!isCurrent && <button onClick={() => setM(currentMonthKey())} className="-mt-3 text-xs font-semibold text-teal-700">Volver a este mes</button>}
 
-      {/* Facturación */}
-      <div>
-        <div className="mb-1 text-sm font-semibold text-slate-700">🧾 Facturas del mes</div>
-        {monthInv.length === 0 ? (
-          <p className="text-sm text-slate-400">Ninguna factura este mes.</p>
-        ) : (
-          <div className="divide-y divide-slate-100 text-sm">
-            <div className="flex justify-between py-1.5"><span className="text-slate-500">Facturas emitidas</span><span className="font-medium">{monthInv.length}</span></div>
-            <div className="flex justify-between py-1.5"><span className="text-slate-500">Total facturado</span><span className="ge-nums font-medium">{money(invoiced)}</span></div>
-            <div className="flex justify-between py-1.5"><span className="text-slate-500">Cobrado en el mes</span><span className="ge-nums font-medium text-teal-700">{money(collected)}</span></div>
-            <div className="flex justify-between py-1.5"><span className="text-slate-500">Falta por cobrar</span><span className={`ge-nums font-medium ${invPending > 0 ? 'text-amber-600' : 'text-teal-700'}`}>{money(invPending)}</span></div>
+      {/* Resultado del mes */}
+      <div className={`rounded-2xl p-4 ${net >= 0 ? 'bg-teal-50' : 'bg-red-50'}`}>
+        <div className={`text-xs font-bold uppercase tracking-wider ${net >= 0 ? 'text-teal-700' : 'text-red-700'}`}>{net >= 0 ? 'Ganancia del mes' : 'Pérdida del mes'}</div>
+        <div className={`ge-nums font-display mt-0.5 text-3xl font-extrabold tracking-tight ${net >= 0 ? 'text-teal-900' : 'text-red-700'}`}>{money(net)}</div>
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-white text-teal-700"><ArrowDownLeft size={18} weight="bold" /></span>
+            <div className="min-w-0">
+              <div className="text-xs font-semibold text-slate-500">Ingresos</div>
+              <div className="ge-nums truncate text-sm font-extrabold text-slate-900">{money(income)}</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2.5">
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-white text-red-600"><ArrowUpRight size={18} weight="bold" /></span>
+            <div className="min-w-0">
+              <div className="text-xs font-semibold text-slate-500">Gastos</div>
+              <div className="ge-nums truncate text-sm font-extrabold text-slate-900">{money(expense)}</div>
+            </div>
+          </div>
+        </div>
+        {(income > 0 || expense > 0) && (
+          <div className="mt-3">
+            <div className="h-2 overflow-hidden rounded-full bg-white">
+              <div className={`h-full rounded-full ${spentPct >= 100 ? 'bg-red-500' : spentPct > 75 ? 'bg-amber-500' : 'bg-teal-600'}`} style={{ width: `${spentPct}%` }} />
+            </div>
+            <div className="mt-1 text-xs font-medium text-slate-500">Has gastado el {spentPct}% de lo que has ingresado</div>
           </div>
         )}
       </div>
 
+      {/* Facturación */}
+      <section>
+        <div className="mb-2.5 flex items-center gap-2 text-sm font-bold text-slate-800"><Receipt size={18} weight="duotone" className="text-teal-700" /> Facturas del mes</div>
+        {monthInv.length === 0 ? (
+          <p className="text-sm text-slate-400">Ninguna factura este mes.</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-2">
+            {([
+              ['Emitidas', String(monthInv.length), 'text-slate-900'],
+              ['Facturado', money(invoiced), 'text-slate-900'],
+              ['Cobrado', money(collected), 'text-teal-700'],
+              ['Falta cobrar', money(invPending), invPending > 0 ? 'text-amber-700' : 'text-teal-700'],
+            ] as [string, string, string][]).map(([k, v, c]) => (
+              <div key={k} className="rounded-xl bg-slate-50 px-3 py-2.5">
+                <div className="text-xs font-semibold text-slate-500">{k}</div>
+                <div className={`ge-nums truncate text-base font-extrabold ${c}`}>{v}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
       {/* En qué se gasta */}
-      <div>
-        <div className="mb-2 text-sm font-semibold text-slate-700">💸 ¿En qué se fue el dinero?</div>
+      <section>
+        <div className="mb-2.5 flex items-center gap-2 text-sm font-bold text-slate-800"><ChartPieSlice size={18} weight="duotone" className="text-teal-700" /> ¿En qué se fue el dinero?</div>
         {cats.length === 0 ? (
           <p className="text-sm text-slate-400">Sin gastos este mes.</p>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {cats.map((c) => (
               <div key={c.name}>
-                <div className="flex justify-between text-sm"><span className="text-slate-600">{c.name}</span><span className="ge-nums font-medium">{money(c.amount)}</span></div>
-                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                <div className="flex justify-between gap-2 text-sm"><span className="truncate font-medium text-slate-700">{c.name}</span><span className="ge-nums shrink-0 font-bold text-slate-900">{money(c.amount)}</span></div>
+                <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-slate-100">
                   <div className="h-full rounded-full" style={{ width: `${Math.round((c.amount / maxCat) * 100)}%`, background: c.color }} />
                 </div>
               </div>
             ))}
           </div>
         )}
-      </div>
+      </section>
 
       {/* Evolución */}
-      <div className="flex flex-wrap gap-2 pt-1">
-        <button onClick={() => setShowChart((v) => !v)} className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600 active:scale-95">
-          {showChart ? 'Ocultar evolución' : '📈 Ver últimos 6 meses'}
+      <div className="flex flex-wrap gap-2">
+        <button onClick={() => setShowChart((v) => !v)} className="flex min-h-10 items-center gap-1.5 rounded-xl bg-slate-100 px-3.5 text-sm font-semibold text-slate-700 transition-transform active:scale-95">
+          <ChartLineUp size={16} weight="bold" /> {showChart ? 'Ocultar evolución' : 'Últimos 6 meses'}
         </button>
-        <button onClick={() => navigate('/informes')} className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600 active:scale-95">
-          Informe completo ›
+        <button onClick={() => navigate('/informes')} className="flex min-h-10 items-center gap-1.5 rounded-xl bg-slate-100 px-3.5 text-sm font-semibold text-slate-700 transition-transform active:scale-95">
+          Informe completo <ArrowRight size={14} weight="bold" />
         </button>
       </div>
       {showChart && <CashFlowChart data={monthlySeries(txs, lastMonths(6))} />}

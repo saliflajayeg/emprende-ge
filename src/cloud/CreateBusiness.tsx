@@ -3,6 +3,7 @@ import { BUSINESS_TYPES, MODULES, modulesFor, withDeps, type BusinessType } from
 import { useBusiness } from './business'
 import { useAuth } from './auth'
 import { Button, Field, Input, Select } from '../components/ui'
+import { Storefront, UsersThree, ArrowLeft, ArrowRight } from '@phosphor-icons/react'
 
 export default function CreateBusiness({ onCancel }: { onCancel?: () => void }) {
   const { createBusiness, redeemInvite } = useBusiness()
@@ -82,7 +83,7 @@ export default function CreateBusiness({ onCancel }: { onCancel?: () => void }) 
               onClick={() => setMode('create')}
               className="flex w-full items-center gap-3 rounded-xl border border-slate-200 p-4 text-left transition hover:border-teal-400 hover:bg-teal-50"
             >
-              <span className="text-2xl">🏪</span>
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-teal-50 text-teal-700"><Storefront size={26} weight="duotone" /></span>
               <div>
                 <div className="font-semibold text-slate-800">Tengo un negocio</div>
                 <div className="text-sm text-slate-500">Créalo y empieza a gestionarlo</div>
@@ -92,7 +93,7 @@ export default function CreateBusiness({ onCancel }: { onCancel?: () => void }) 
               onClick={() => setMode('join')}
               className="flex w-full items-center gap-3 rounded-xl border border-slate-200 p-4 text-left transition hover:border-teal-400 hover:bg-teal-50"
             >
-              <span className="text-2xl">👥</span>
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-amber-50 text-amber-700"><UsersThree size={26} weight="duotone" /></span>
               <div>
                 <div className="font-semibold text-slate-800">Trabajo para un negocio</div>
                 <div className="text-sm text-slate-500">Únete con el código de invitación del dueño</div>
@@ -117,7 +118,7 @@ export default function CreateBusiness({ onCancel }: { onCancel?: () => void }) 
             </Field>
             {error && <p className="text-sm text-red-500">{error}</p>}
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => { setMode('choose'); setError('') }}>← Atrás</Button>
+              <Button variant="outline" onClick={() => { setMode('choose'); setError('') }}><ArrowLeft size={16} weight="bold" /> Atrás</Button>
               <Button className="flex-1" onClick={doJoin} disabled={saving || join.code.trim().length < 4}>
                 {saving ? 'Uniéndome…' : 'Unirme al negocio'}
               </Button>
@@ -148,7 +149,7 @@ export default function CreateBusiness({ onCancel }: { onCancel?: () => void }) 
               </div>
             )}
             <Button className="w-full" onClick={() => setStep(2)} disabled={!form.businessType}>
-              Continuar →
+              Continuar <ArrowRight size={16} weight="bold" />
             </Button>
           </div>
         )}
@@ -171,7 +172,7 @@ export default function CreateBusiness({ onCancel }: { onCancel?: () => void }) 
             </Field>
             {error && <p className="text-sm text-red-500">{error}</p>}
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setStep(1)}>← Atrás</Button>
+              <Button variant="outline" onClick={() => setStep(1)}><ArrowLeft size={16} weight="bold" /> Atrás</Button>
               <Button className="flex-1" onClick={finish} disabled={saving || !form.businessName.trim()}>
                 {saving ? 'Creando…' : 'Crear negocio'}
               </Button>

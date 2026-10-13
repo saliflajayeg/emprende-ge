@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { signIn, signUp, storageAvailable } from './auth'
 import { Button, Field, Input } from '../components/ui'
+import { Money, ChartLineUp, Receipt, WifiSlash, Users, DeviceMobile, EnvelopeSimple, WarningCircle, type Icon } from '@phosphor-icons/react'
 
-const BENEFITS = [
-  { icon: '💵', text: 'Registra ventas y gastos en segundos' },
-  { icon: '📊', text: 'Mira tu caja y tus beneficios al instante' },
-  { icon: '🧾', text: 'Crea facturas y recibos en PDF' },
-  { icon: '📶', text: 'Funciona sin internet y se sincroniza solo' },
-  { icon: '👥', text: 'Compártelo con un empleado, en cualquier móvil' },
+const BENEFITS: { icon: Icon; text: string }[] = [
+  { icon: Receipt, text: 'Facturas bonitas en PDF, listas para WhatsApp' },
+  { icon: Money, text: 'Apunta ventas y gastos en segundos' },
+  { icon: ChartLineUp, text: 'Tu contabilidad del mes, hecha sola' },
+  { icon: WifiSlash, text: 'Funciona sin internet y se guarda solo' },
+  { icon: Users, text: 'Compártelo con un empleado, en cualquier móvil' },
 ]
 
 // Normaliza un número de GE a dígitos, quitando prefijo +240 y ceros iniciales,
@@ -68,37 +69,36 @@ export default function AuthScreen() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-50 to-slate-100 px-4 py-8">
-      <div className="mx-auto grid w-full max-w-4xl items-center gap-8 md:grid-cols-2">
+    <div className="min-h-dvh bg-cream px-4 pb-10 pt-[calc(1.25rem+env(safe-area-inset-top))]">
+      <div className="mx-auto grid w-full max-w-4xl gap-6 md:grid-cols-2 md:items-center md:gap-10 md:pt-8">
         {/* Presentación: qué es GEmprende y cómo ayuda */}
-        <div className="order-1">
-          <div className="mb-4 flex items-center gap-3">
+        <div className="md:row-span-2">
+          <div className="mb-5 flex items-center gap-3">
             <img src="/logo-mark.png" alt="GEmprende" className="h-11 w-11 rounded-xl object-cover shadow-sm" />
             <div>
-              <div className="text-lg font-bold leading-tight text-slate-800">GEmprende</div>
-              <div className="text-xs text-slate-500">para emprendedores de Guinea Ecuatorial</div>
+              <div className="font-display text-lg font-bold leading-tight text-slate-900">GEmprende</div>
+              <div className="text-xs text-slate-500">para los negocios de Guinea Ecuatorial</div>
             </div>
           </div>
 
+          <h1 className="text-[2rem] font-bold leading-[1.05] text-slate-900 sm:text-4xl">
+            Tu negocio, claro y <span className="text-teal-700">bajo control</span>
+          </h1>
+          <p className="mt-2 max-w-md text-[15px] text-slate-600">
+            Facturas, ventas, gastos y tu caja del mes — todo desde el móvil y <b className="text-slate-800">aunque no tengas internet</b>. Gratis.
+          </p>
+
           <img
-            src="/welcome-hero.jpg"
-            alt="Emprendedora gestionando su negocio con GEmprende"
-            className="mb-5 w-full rounded-2xl shadow-md"
+            src="/ill/hero-vendedora.webp"
+            alt="Vendedora del mercado usando GEmprende en su móvil"
+            className="mt-5 aspect-[16/10] w-full rounded-3xl object-cover shadow-[0_18px_40px_-22px_rgba(43,39,34,0.45)]"
             loading="eager"
           />
 
-          <h1 className="text-2xl font-bold leading-tight text-slate-800 sm:text-3xl">
-            Tu negocio, claro y bajo control
-          </h1>
-          <p className="mt-2 text-sm text-slate-600">
-            Registra tus ventas y gastos, controla tu caja y sabe si ganas dinero — todo desde el móvil y{' '}
-            <b>aunque no tengas internet</b>.
-          </p>
-
-          <ul className="mt-4 space-y-2">
+          <ul className="mt-6 hidden space-y-2.5 md:block">
             {BENEFITS.map((b) => (
-              <li key={b.text} className="flex items-center gap-3 text-sm text-slate-700">
-                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-teal-100 text-base">{b.icon}</span>
+              <li key={b.text} className="flex items-center gap-3 text-sm font-medium text-slate-700">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-teal-50 text-teal-700"><b.icon size={20} weight="duotone" /></span>
                 {b.text}
               </li>
             ))}
@@ -106,8 +106,8 @@ export default function AuthScreen() {
         </div>
 
         {/* Formulario de acceso */}
-        <div className="order-2 w-full">
-          <div className="mx-auto w-full max-w-sm rounded-2xl bg-white p-6 shadow-lg sm:p-8">
+        <div className="w-full">
+          <div className="mx-auto w-full max-w-sm rounded-3xl bg-white p-6 shadow-[0_18px_40px_-22px_rgba(43,39,34,0.35)] ring-1 ring-slate-200/70 sm:p-8">
             <h2 className="text-lg font-bold text-slate-800">
               {mode === 'login' ? 'Entra en tu cuenta' : 'Crea tu cuenta gratis'}
             </h2>
@@ -115,16 +115,16 @@ export default function AuthScreen() {
               {mode === 'login' ? 'Continúa gestionando tu negocio.' : 'Empieza hoy, en menos de un minuto.'}
             </p>
 
-            <div className="mb-5 grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1">
+            <div className="mb-5 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
               <button
                 onClick={() => setMode('login')}
-                className={`rounded-md py-2 text-sm font-semibold ${mode === 'login' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}
+                className={`min-h-10 rounded-lg py-2 text-sm font-semibold ${mode === 'login' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}
               >
                 Iniciar sesión
               </button>
               <button
                 onClick={() => setMode('register')}
-                className={`rounded-md py-2 text-sm font-semibold ${mode === 'register' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}
+                className={`min-h-10 rounded-lg py-2 text-sm font-semibold ${mode === 'register' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}
               >
                 Registrarme
               </button>
@@ -132,24 +132,24 @@ export default function AuthScreen() {
 
             {!storageOk && (
               <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                ⚠️ Tu navegador está bloqueando el almacenamiento (modo privado/incógnito o datos del sitio
+                <WarningCircle size={16} weight="fill" className="mr-1 inline align-[-3px]" /> Tu navegador está bloqueando el almacenamiento (modo privado/incógnito o datos del sitio
                 bloqueados). El registro no funcionará hasta que lo desactives o abras la app en una pestaña normal.
               </div>
             )}
 
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1">
+              <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
                 <button
                   onClick={() => setIdType('phone')}
-                  className={`rounded-md py-1.5 text-sm font-semibold ${idType === 'phone' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}
+                  className={`min-h-10 rounded-lg py-1.5 text-sm font-semibold ${idType === 'phone' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}
                 >
-                  📱 Teléfono
+                  <span className="inline-flex items-center gap-1.5"><DeviceMobile size={16} weight="bold" /> Teléfono</span>
                 </button>
                 <button
                   onClick={() => setIdType('email')}
-                  className={`rounded-md py-1.5 text-sm font-semibold ${idType === 'email' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}
+                  className={`min-h-10 rounded-lg py-1.5 text-sm font-semibold ${idType === 'email' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}
                 >
-                  ✉️ Correo
+                  <span className="inline-flex items-center gap-1.5"><EnvelopeSimple size={16} weight="bold" /> Correo</span>
                 </button>
               </div>
 
@@ -186,17 +186,26 @@ export default function AuthScreen() {
                   autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                 />
               </Field>
-              {error && <p className="text-sm text-red-500">{error}</p>}
+              {error && <p className="rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{error}</p>}
               <Button className="w-full" onClick={submit} disabled={busy}>
                 {busy ? 'Un momento…' : mode === 'login' ? 'Entrar' : 'Crear cuenta gratis'}
               </Button>
             </div>
 
             <p className="mt-4 text-center text-xs text-slate-400">
-              Gestiona tus negocios desde cualquier dispositivo. Gratis para empezar.
+              Gestiona tus negocios desde cualquier dispositivo. Gratis.
             </p>
           </div>
         </div>
+
+        <ul className="space-y-2.5 md:hidden">
+          {BENEFITS.map((b) => (
+            <li key={b.text} className="flex items-center gap-3 text-sm font-medium text-slate-700">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-teal-50 text-teal-700"><b.icon size={20} weight="duotone" /></span>
+              {b.text}
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   )

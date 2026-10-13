@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
+import { DEMO, DEMO_USER_ID } from './demo'
 
 interface AuthCtx {
   user: User | null
@@ -36,6 +37,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Modo demo (solo desarrollo): usuario ficticio, sin iniciar sesión.
+    if (DEMO) {
+      setUser({ id: DEMO_USER_ID, email: 'demo@gemprende.app' } as User)
+      setLoading(false)
+      return
+    }
     supabase.auth
       .getSession()
       .then(({ data }) => {

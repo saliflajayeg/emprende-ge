@@ -32,7 +32,7 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,png,svg,woff,woff2,ico}'],
+        globPatterns: ['**/*.{js,css,html,png,jpg,webp,svg,woff,woff2,ico}'],
         navigateFallback: 'index.html',
         // No cachear la API de Supabase (siempre datos frescos/online)
         navigateFallbackDenylist: [/^\/rest\//, /^\/auth\//],

@@ -9,6 +9,7 @@ import { paymentSummary, payClientDebt } from '../lib/invoiceLedger'
 import { groupByInvoice } from '../lib/salesStats'
 import { pdfBiz } from './InvoiceForm'
 import { Button, Field, Input, Select } from './ui'
+import { CheckCircle, HandCoins, BellRinging, WhatsappLogo, FilePdf } from '@phosphor-icons/react'
 
 const METHODS = ['Efectivo', 'Transferencia', 'Pago móvil', 'Tarjeta', 'Otro']
 const STATE_UI = {
@@ -98,13 +99,13 @@ export default function ClientProfile({ contact, onEdit }: { contact: Contact; o
         </div>
       </div>
 
-      {done && <p className="rounded-lg bg-teal-50 px-3 py-2 text-sm text-teal-700">✓ {done}</p>}
+      {done && <p className="flex items-center gap-2 rounded-xl bg-teal-50 px-3 py-2.5 text-sm font-semibold text-teal-800"><CheckCircle size={18} weight="fill" /> {done}</p>}
 
       {/* Cobrar deuda */}
       {owed > 0 && !paying && (
         <div className="flex gap-2">
-          <Button onClick={() => { setAmount(String(owed)); setPaying(true); setDone('') }} className="flex-1">💵 Cobrar deuda</Button>
-          <button onClick={remind} className="rounded-lg bg-[#25D366] px-3 text-sm font-medium text-white active:scale-95">🔔 Recordar</button>
+          <Button onClick={() => { setAmount(String(owed)); setPaying(true); setDone('') }} className="flex-1"><HandCoins size={18} weight="fill" /> Cobrar deuda</Button>
+          <button onClick={remind} className="flex min-h-11 items-center gap-1.5 rounded-xl bg-amber-100 px-3.5 text-sm font-semibold text-amber-800 transition-transform active:scale-95"><BellRinging size={18} weight="fill" /> Recordar</button>
         </div>
       )}
       {paying && (
@@ -147,8 +148,8 @@ export default function ClientProfile({ contact, onEdit }: { contact: Contact; o
                     {s.remaining > 0 ? `Debe ${money(s.remaining)}` : STATE_UI[s.state].label}
                   </span>
                 </div>
-                <button onClick={() => share(inv, s)} title="Enviar por WhatsApp" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[#1ebe5b] active:scale-90">📲</button>
-                <button onClick={() => current && invoicePDF(inv, pdfBiz(current), { paid: s.paid, remaining: s.remaining })} title="PDF" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-slate-400 active:scale-90">⬇</button>
+                <button onClick={() => share(inv, s)} title="Enviar por WhatsApp" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-[#1DA851] transition-transform hover:bg-slate-100 active:scale-90"><WhatsappLogo size={22} weight="fill" /></button>
+                <button onClick={() => current && invoicePDF(inv, pdfBiz(current), { paid: s.paid, remaining: s.remaining })} title="PDF" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-slate-500 transition-transform hover:bg-slate-100 active:scale-90"><FilePdf size={22} /></button>
               </li>
             ))}
           </ul>

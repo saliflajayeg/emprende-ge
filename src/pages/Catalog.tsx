@@ -5,6 +5,7 @@ import { useBusiness } from '../cloud/business'
 import { usePerms } from '../cloud/perms'
 import { money, moneyPlain } from '../lib/format'
 import { Button, Card, Modal, Field, Input, Textarea, EmptyState, IconButton } from '../components/ui'
+import { Plus, Minus, MagnifyingGlass, Storefront, Trash } from '@phosphor-icons/react'
 
 interface CatalogConfig {
   kind: ItemKind
@@ -97,8 +98,9 @@ export default function Catalog({ cfg }: { cfg: CatalogConfig }) {
   if (!items) return <div className="text-slate-400">Cargando…</div>
 
   async function remove(id?: string) {
-    if (!id) return
-    if (confirm('¿Eliminar este elemento?')) await removeRow('items', id)
+    if (!id || !confirm('¿Eliminar este elemento?')) return false
+    await removeRow('items', id)
+    return true
   }
   async function adjust(it: Item, delta: number) {
     if (!it.id) return
@@ -107,69 +109,76 @@ export default function Catalog({ cfg }: { cfg: CatalogConfig }) {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-slate-800">{cfg.title}</h1>
-        <Button onClick={() => setModal({})}>+ Nuevo {cfg.singular.toLowerCase()}</Button>
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <h1 className="text-[1.7rem] font-bold leading-tight text-slate-900">{cfg.title}</h1>
+          <p className="text-sm text-slate-500">{items.length} en tu lista</p>
+        </div>
+        <Button onClick={() => setModal({})} className="shrink-0"><Plus size={18} weight="bold" /> Nuevo</Button>
       </div>
 
-      <Card><Input placeholder="Buscar…" value={query} onChange={(e) => setQuery(e.target.value)} /></Card>
+      {items.length > 0 && (
+        <div className="relative">
+          <MagnifyingGlass size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Input placeholder="Buscar…" value={query} onChange={(e) => setQuery(e.target.value)} className="pl-10" />
+        </div>
+      )}
 
       {cfg.kind !== 'ingredient' && list.length > 0 && (
-        <p className="text-xs text-slate-400">🏪 Pulsa el icono de tienda en un artículo para publicarlo en <b>Mercado Semu</b>.</p>
+        <p className="flex items-center gap-1.5 text-xs text-slate-500"><Storefront size={16} weight="duotone" className="shrink-0 text-teal-700" /><span>Pulsa la tienda para publicar un artículo en <b>Mercado Semu</b>.</span></p>
       )}
 
       {list.length === 0 ? (
-        <EmptyState title={`Sin ${cfg.title.toLowerCase()}`} hint={`Añade tu primer ${cfg.singular.toLowerCase()}.`} />
+        <EmptyState
+          title={items.length ? 'Nada con ese nombre' : `Añade tus ${cfg.title.toLowerCase()}`}
+          hint={items.length ? 'Prueba con otra palabra.' : `Con tus ${cfg.title.toLowerCase()} y precios guardados, hacer una factura es tocar y listo.`}
+          action={items.length ? undefined : <Button onClick={() => setModal({})}><Plus size={18} weight="bold" /> Nuevo {cfg.singular.toLowerCase()}</Button>}
+        />
       ) : (
-        <Card className="overflow-x-auto p-0">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 text-left text-xs uppercase text-slate-400">
-                <th className="px-4 py-3">Nombre</th>
-                <th className="px-4 py-3 text-right">Precio</th>
-                <th className="px-4 py-3 text-center">Stock</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.map((it) => {
-                const low = it.trackStock && it.lowStock > 0 && it.stock <= it.lowStock
-                return (
-                  <tr key={it.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
-                    <td className="px-4 py-3">
-                      <div className="font-medium text-slate-800">{it.name}</div>
-                      <div className="text-xs text-slate-400">{[it.category, it.unit].filter(Boolean).join(' · ')}</div>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right font-semibold text-slate-700">{it.price ? money(it.price) : '—'}</td>
-                    <td className="px-4 py-3 text-center">
-                      {it.trackStock ? (
-                        <div className="inline-flex items-center gap-1">
-                          <button onClick={() => adjust(it, -1)} className="grid h-6 w-6 place-items-center rounded bg-slate-100 hover:bg-slate-200">−</button>
-                          <span className={`w-10 text-center font-medium ${low ? 'text-red-600' : 'text-slate-700'}`}>{moneyPlain(it.stock)}</span>
-                          <button onClick={() => adjust(it, 1)} className="grid h-6 w-6 place-items-center rounded bg-slate-100 hover:bg-slate-200">+</button>
-                          {low && <span title="Stock bajo">⚠️</span>}
-                        </div>
-                      ) : <span className="text-slate-300">—</span>}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right">
-                      <div className="flex justify-end gap-0.5">
-                        {cfg.kind !== 'ingredient' && (
-                          <IconButton onClick={() => publishToSemu(it)} title="Publicar en Mercado Semu">🏪</IconButton>
-                        )}
-                        <IconButton onClick={() => setModal({ item: it })} title="Editar">✎</IconButton>
-                        {canDelete && <IconButton onClick={() => remove(it.id)} title="Eliminar" className="text-slate-400 hover:text-red-600">🗑</IconButton>}
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+        <Card className="p-0">
+          <ul className="divide-y divide-slate-100">
+            {list.map((it) => {
+              const low = it.trackStock && it.lowStock > 0 && it.stock <= it.lowStock
+              return (
+                <li key={it.id} className="flex items-center gap-3 px-4 py-3">
+                  <button onClick={() => setModal({ item: it })} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-teal-50 font-display text-base font-bold text-teal-800">
+                      {it.name.trim().slice(0, 1).toUpperCase()}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[15px] font-bold text-slate-900">{it.name}</span>
+                      <span className="block truncate text-xs text-slate-500">
+                        <span className="ge-nums font-semibold text-slate-700">{it.price ? money(it.price) : 'Sin precio'}</span>
+                        {[it.unit && `/ ${it.unit}`, it.category].filter(Boolean).map((x) => ` · ${x}`).join('')}
+                      </span>
+                    </span>
+                  </button>
+                  {it.trackStock && (
+                    <div className={`flex shrink-0 items-center rounded-xl ring-1 ${low ? 'bg-red-50 ring-red-200' : 'bg-slate-50 ring-slate-200'}`}>
+                      <button onClick={() => adjust(it, -1)} aria-label="Quitar uno" className="grid h-9 w-8 place-items-center text-slate-600 active:scale-90"><Minus size={14} weight="bold" /></button>
+                      <span className={`ge-nums min-w-7 text-center text-sm font-bold ${low ? 'text-red-600' : 'text-slate-800'}`} title={low ? 'Quedan pocos' : 'Existencias'}>{moneyPlain(it.stock)}</span>
+                      <button onClick={() => adjust(it, 1)} aria-label="Añadir uno" className="grid h-9 w-8 place-items-center text-slate-600 active:scale-90"><Plus size={14} weight="bold" /></button>
+                    </div>
+                  )}
+                  <div className="flex shrink-0">
+                    {cfg.kind !== 'ingredient' && (
+                      <IconButton onClick={() => publishToSemu(it)} title="Publicar en Mercado Semu" className="text-teal-700"><Storefront size={20} weight="duotone" /></IconButton>
+                    )}
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
         </Card>
       )}
 
       <Modal open={modal !== null} onClose={() => setModal(null)} title={modal?.item ? `Editar ${cfg.singular.toLowerCase()}` : `Nuevo ${cfg.singular.toLowerCase()}`}>
         {modal && <ItemForm cfg={cfg} existing={modal.item} onDone={() => setModal(null)} />}
+        {modal?.item && canDelete && (
+          <button onClick={async () => { if (await remove(modal.item?.id)) setModal(null) }} className="mt-3 flex w-full items-center justify-center gap-1.5 py-2 text-sm font-semibold text-red-600">
+            <Trash size={16} /> Eliminar {cfg.singular.toLowerCase()}
+          </button>
+        )}
       </Modal>
     </div>
   )

@@ -9,6 +9,7 @@ import { topProducts, topClients, groupByInvoice } from '../lib/salesStats'
 import { paymentSummary } from '../lib/invoiceLedger'
 import { downloadCSV } from '../lib/csv'
 import { Card, Button, Select, Input, StatCard } from '../components/ui'
+import { FileXls, FilePdf, Trophy, Star, Bank, DownloadSimple } from '@phosphor-icons/react'
 import { DonutChart, CashFlowChart } from '../components/charts'
 
 type Scope = 'month' | 'year' | 'all'
@@ -143,8 +144,8 @@ export default function Reports() {
               <Input type="month" value={m} max={currentMonthKey()} onChange={(e) => setM(e.target.value || currentMonthKey())} />
             </div>
           )}
-          <Button variant="outline" onClick={exportCSV}>⬇ Excel/CSV</Button>
-          <Button onClick={exportPDF}>⬇ PDF</Button>
+          <Button variant="outline" onClick={exportCSV}><FileXls size={18} /> Excel</Button>
+          <Button onClick={exportPDF}><FilePdf size={18} /> PDF</Button>
         </div>
       </div>
 
@@ -159,7 +160,7 @@ export default function Reports() {
       {/* Más vendido y mejores clientes (salen de las facturas) */}
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <h2 className="mb-3 font-semibold text-slate-800">🏆 Lo más vendido</h2>
+          <h2 className="mb-3 flex items-center gap-2 font-bold text-slate-900"><Trophy size={20} weight="duotone" className="text-amber-600" /> Lo más vendido</h2>
           {products.length === 0 ? (
             <p className="text-sm text-slate-400">Aparecerá cuando hagas facturas en este periodo.</p>
           ) : (
@@ -179,7 +180,7 @@ export default function Reports() {
           )}
         </Card>
         <Card>
-          <h2 className="mb-3 font-semibold text-slate-800">⭐ Mejores clientes</h2>
+          <h2 className="mb-3 flex items-center gap-2 font-bold text-slate-900"><Star size={20} weight="duotone" className="text-amber-500" /> Mejores clientes</h2>
           {clients.length === 0 ? (
             <p className="text-sm text-slate-400">Aparecerá cuando factures a clientes con nombre.</p>
           ) : (
@@ -199,12 +200,15 @@ export default function Reports() {
       </div>
 
       {/* Informe para crédito */}
-      <Card className="flex flex-wrap items-center gap-3">
-        <div className="min-w-0 flex-1">
-          <h2 className="font-semibold text-slate-800">🏦 Informe para pedir un crédito</h2>
-          <p className="text-sm text-slate-500">Tu historial de los últimos 12 meses (ventas, cobros, gastos, clientes) en un PDF para enseñar a un banco o microcrédito.</p>
+      <Card className="overflow-hidden p-0">
+        <div className="grid items-center gap-0 sm:grid-cols-[1fr_1.1fr]">
+          <img src="/ill/credito.webp" alt="" aria-hidden="true" className="h-44 w-full object-cover object-center sm:h-full" />
+          <div className="p-5">
+            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900"><Bank size={22} weight="duotone" className="text-teal-700" /> ¿Quieres pedir un crédito?</h2>
+            <p className="mt-1 text-sm text-slate-600">Descarga tu historial de los últimos 12 meses (ventas, cobros, gastos y clientes) en un PDF para enseñarlo a un banco o microcrédito.</p>
+            <Button onClick={exportCredit} className="mt-4 w-full sm:w-auto"><DownloadSimple size={18} weight="bold" /> Descargar mi historial</Button>
+          </div>
         </div>
-        <Button onClick={exportCredit}>⬇ Descargar informe</Button>
       </Card>
 
       {monthly.length > 1 && (

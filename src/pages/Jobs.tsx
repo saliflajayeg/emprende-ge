@@ -5,6 +5,7 @@ import { useBusiness } from '../cloud/business'
 import { usePerms } from '../cloud/perms'
 import { formatDate } from '../lib/format'
 import { Button, Card, Modal, Field, Input, Select, Textarea, EmptyState, IconButton } from '../components/ui'
+import { PencilSimple, Trash } from '@phosphor-icons/react'
 
 const STATUS: Record<JobStatus, { label: string; cls: string }> = {
   pending: { label: 'Pendiente', cls: 'bg-amber-50 text-amber-700' },
@@ -137,8 +138,8 @@ export default function Jobs() {
                   {j.notes && <div className="text-xs text-slate-400">{j.notes}</div>}
                 </div>
                 <div className="flex gap-0.5">
-                  <IconButton onClick={() => setModal({ job: j })} title="Editar">✎</IconButton>
-                  {canDelete && <IconButton onClick={() => remove(j.id)} title="Eliminar" className="text-slate-400 hover:text-red-600">🗑</IconButton>}
+                  <IconButton onClick={() => setModal({ job: j })} title="Editar"><PencilSimple size={20} /></IconButton>
+                  {canDelete && <IconButton onClick={() => remove(j.id)} title="Eliminar" className="text-slate-400 hover:text-red-600"><Trash size={20} /></IconButton>}
                 </div>
               </Card>
             )

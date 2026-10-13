@@ -89,7 +89,9 @@ export default function PullToRefresh({ onRefresh, children }: { onRefresh: () =
       </div>
 
       {/* Contenido, que se desplaza con el tirón */}
-      <div style={{ transform: `translateY(${dist}px)`, transition: active.current ? 'none' : 'transform 0.2s ease-out' }}>
+      {/* Solo se transforma MIENTRAS se tira: un transform permanente "encierra" las
+          ventanas (position: fixed) dentro del contenido y quedaban bajo la barra inferior. */}
+      <div style={dist > 0 ? { transform: `translateY(${dist}px)`, transition: active.current ? 'none' : 'transform 0.2s ease-out' } : undefined}>
         {children}
       </div>
     </>

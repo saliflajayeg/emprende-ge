@@ -5,6 +5,7 @@ import { setLocalBusiness } from './localdb'
 import { startSync, stopSync } from './sync'
 import { setCurrency } from '../lib/format'
 import { useAuth } from './auth'
+import { DEMO, DEMO_BUSINESS, seedDemo } from './demo'
 
 export interface Business {
   id: string
@@ -87,6 +88,15 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
       setLoading(false)
       return
     }
+    // Modo demo (solo desarrollo): negocio de ejemplo, sin tocar Supabase.
+    if (DEMO) {
+      setBusinesses([DEMO_BUSINESS as Business])
+      setRoleByBiz({ [DEMO_BUSINESS.id]: 'owner' })
+      setIsAdmin(false)
+      setCurrentId(DEMO_BUSINESS.id)
+      setLoading(false)
+      return
+    }
     // Asegura que el token de sesión esté cargado antes de consultar; si no,
     // en el arranque en frío la primera consulta puede volver vacía (RLS).
     try { await supabase.auth.getSession() } catch { /* */ }
@@ -165,7 +175,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
   const role = current ? roleByBiz[current.id] ?? null : null
 
   const loadMembers = useCallback(async (bid: string | null) => {
-    if (!bid) { setMembers([]); return }
+    if (!bid || DEMO) { setMembers([]); return }
     const { data } = await supabase.from('members').select('user_id, role, name').eq('business_id', bid)
     setMembers((data ?? []).map((m) => ({ userId: m.user_id, role: m.role, name: m.name ?? '' })))
   }, [])
@@ -200,6 +210,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
 
   const updateBusiness = async (patch: Record<string, any>) => {
     if (!current) return
+    if (DEMO) { setBusinesses((prev) => prev.map((b) => (b.id === current.id ? { ...b, ...patch } : b))); return }
     const { error } = await supabase.from('businesses').update(keysToSnake(patch)).eq('id', current.id)
     if (error) throw error
     setBusinesses((prev) => prev.map((b) => (b.id === current.id ? { ...b, ...patch } : b)))
@@ -210,6 +221,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     const id = current?.id ?? null
     if (current) setCurrency(current.currency)
     setLocalBusiness(id)
+    if (DEMO) { if (id) seedDemo(id); return }
     if (id) startSync(id)
     else stopSync()
     return () => stopSync()

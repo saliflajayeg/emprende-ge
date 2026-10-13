@@ -4,34 +4,35 @@ import { ldb, type Transaction, type TxStatus, type Category } from '../cloud/lo
 import { useBusiness } from '../cloud/business'
 import { money, todayISO } from '../lib/format'
 import { Button, Field, Input, Select } from './ui'
+import { CookingPot, Fire, Taxi, Package, House, Receipt, ForkKnife, Drop, Lightbulb, Wrench, X, Plus, CaretDown, type Icon } from '@phosphor-icons/react'
 
 // Categorías de gasto de un toque, adaptadas al tipo de negocio. La primera es
 // la "principal" (mercancía/ingredientes) y es la que se usa al detallar.
-interface Chip { label: string; icon: string; color: string }
+interface Chip { label: string; icon: Icon; color: string }
 const CHIPS_BY_TYPE: Record<string, Chip[]> = {
   foodstall: [
-    { label: 'Ingredientes', icon: '🥘', color: '#f97316' },
-    { label: 'Gas / Carbón', icon: '🔥', color: '#ef4444' },
-    { label: 'Transporte', icon: '🚕', color: '#0ea5e9' },
-    { label: 'Otros', icon: '📦', color: '#64748b' },
+    { label: 'Ingredientes', icon: CookingPot, color: '#f97316' },
+    { label: 'Gas / Carbón', icon: Fire, color: '#ef4444' },
+    { label: 'Transporte', icon: Taxi, color: '#0ea5e9' },
+    { label: 'Otros', icon: Package, color: '#64748b' },
   ],
   shop: [
-    { label: 'Mercancía', icon: '📦', color: '#f97316' },
-    { label: 'Transporte', icon: '🚕', color: '#0ea5e9' },
-    { label: 'Alquiler', icon: '🏠', color: '#8b5cf6' },
-    { label: 'Otros', icon: '🧾', color: '#64748b' },
+    { label: 'Mercancía', icon: Package, color: '#f97316' },
+    { label: 'Transporte', icon: Taxi, color: '#0ea5e9' },
+    { label: 'Alquiler', icon: House, color: '#8b5cf6' },
+    { label: 'Otros', icon: Receipt, color: '#64748b' },
   ],
   personal: [
-    { label: 'Comida', icon: '🍽️', color: '#f97316' },
-    { label: 'Transporte', icon: '🚕', color: '#0ea5e9' },
-    { label: 'Casa', icon: '🏠', color: '#8b5cf6' },
-    { label: 'Otros', icon: '🧾', color: '#64748b' },
+    { label: 'Comida', icon: ForkKnife, color: '#f97316' },
+    { label: 'Transporte', icon: Taxi, color: '#0ea5e9' },
+    { label: 'Casa', icon: House, color: '#8b5cf6' },
+    { label: 'Otros', icon: Receipt, color: '#64748b' },
   ],
   laundry: [
-    { label: 'Detergente / Suavizante', icon: '🧼', color: '#0ea5e9' },
-    { label: 'Luz / Agua', icon: '💡', color: '#eab308' },
-    { label: 'Mantenimiento', icon: '🔧', color: '#ef4444' },
-    { label: 'Otros', icon: '📦', color: '#64748b' },
+    { label: 'Detergente / Suavizante', icon: Drop, color: '#0ea5e9' },
+    { label: 'Luz / Agua', icon: Lightbulb, color: '#eab308' },
+    { label: 'Mantenimiento', icon: Wrench, color: '#ef4444' },
+    { label: 'Otros', icon: Package, color: '#64748b' },
   ],
 }
 
@@ -113,13 +114,13 @@ export default function QuickExpenseForm({ existing, onDone }: { existing?: Tran
     <div className="space-y-5">
       {/* 1) Cuánto gastó — el número es lo primero y lo más grande */}
       {detail ? (
-        <div className="rounded-xl bg-slate-50 p-4 text-center">
-          <div className="text-xs uppercase tracking-wide text-slate-400">Total del gasto</div>
-          <div className="ge-nums text-3xl font-bold text-red-600">{money(detailTotal)}</div>
+        <div className="rounded-2xl bg-red-50/70 p-4 text-center">
+          <div className="text-xs font-semibold text-slate-500">Total del gasto</div>
+          <div className="ge-nums font-display text-[2rem] font-extrabold text-red-600">{money(detailTotal)}</div>
         </div>
       ) : (
         <div>
-          <label className="mb-1 block text-center text-sm font-medium text-slate-600">¿Cuánto gastaste?</label>
+          <label className="mb-1.5 block text-center text-sm font-semibold text-slate-600">¿Cuánto gastaste?</label>
           <input
             type="number"
             inputMode="numeric"
@@ -127,14 +128,14 @@ export default function QuickExpenseForm({ existing, onDone }: { existing?: Tran
             onChange={(e) => setAmount(e.target.value)}
             placeholder="0"
             autoFocus
-            className="ge-nums w-full rounded-xl border border-slate-300 bg-white px-4 py-4 text-center text-3xl font-bold text-slate-800 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+            className="ge-nums w-full rounded-2xl border border-slate-300 bg-white px-4 py-4 text-center font-display text-[2.2rem] font-extrabold text-slate-900 outline-none transition-[border-color,box-shadow] focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
           />
         </div>
       )}
 
       {/* 2) En qué — botones de un toque */}
       <div>
-        <div className="mb-2 text-sm font-medium text-slate-600">¿En qué fue el gasto?</div>
+        <div className="mb-2 text-sm font-semibold text-slate-700">¿En qué fue el gasto?</div>
         <div className="grid grid-cols-2 gap-2">
           {chips.map((c) => {
             const on = catLabel === c.label
@@ -142,12 +143,14 @@ export default function QuickExpenseForm({ existing, onDone }: { existing?: Tran
               <button
                 key={c.label}
                 onClick={() => setCatLabel(on ? '' : c.label)}
-                className={`flex items-center gap-2 rounded-xl border px-3 py-3 text-left text-sm font-medium transition-transform duration-100 ease-out active:scale-95 ${
-                  on ? 'border-transparent text-white shadow-sm' : 'border-slate-200 bg-white text-slate-700'
+                className={`flex min-h-14 items-center gap-2.5 rounded-2xl border px-3 py-2.5 text-left text-sm font-semibold leading-tight transition-[transform,background-color] duration-100 ease-out active:scale-95 ${
+                  on ? 'border-transparent text-white shadow-md' : 'border-slate-200 bg-white text-slate-700'
                 }`}
                 style={on ? { background: c.color } : undefined}
               >
-                <span className="text-lg">{c.icon}</span>
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl" style={{ background: on ? 'rgba(255,255,255,0.2)' : `${c.color}1a`, color: on ? '#fff' : c.color }}>
+                  <c.icon size={20} weight="duotone" />
+                </span>
                 {c.label}
               </button>
             )
@@ -159,9 +162,9 @@ export default function QuickExpenseForm({ existing, onDone }: { existing?: Tran
       <div>
         <button
           onClick={() => setDetail((v) => !v)}
-          className="text-sm font-medium text-teal-600 transition-transform duration-100 ease-out active:scale-95"
+          className="flex min-h-9 items-center gap-1.5 text-sm font-semibold text-teal-700 transition-transform duration-100 ease-out active:scale-95"
         >
-          {detail ? '✕ Quitar detalle (poner solo el total)' : '➕ Detallar por ingrediente'}
+          {detail ? <><X size={16} weight="bold" /> Quitar detalle (poner solo el total)</> : <><Plus size={16} weight="bold" /> Detallar por ingrediente</>}
         </button>
         {detail && (
           <div className="mt-2 space-y-2">
@@ -179,19 +182,20 @@ export default function QuickExpenseForm({ existing, onDone }: { existing?: Tran
                   value={l.price}
                   onChange={(e) => setLines((arr) => arr.map((x, idx) => (idx === i ? { ...x, price: e.target.value } : x)))}
                   placeholder="0"
-                  className="ge-nums w-24 rounded-lg border border-slate-300 bg-white px-3 py-2 text-right text-sm outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-100"
+                  className="ge-nums w-24 min-h-11 rounded-xl border border-slate-300 bg-white px-3 py-2 text-right text-base outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-100 sm:text-sm"
                 />
                 <button
                   onClick={() => setLines((arr) => (arr.length > 1 ? arr.filter((_, idx) => idx !== i) : arr))}
-                  className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-slate-400 active:scale-90"
+                  className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-slate-400 active:scale-90"
                   title="Quitar"
+                  aria-label="Quitar"
                 >
-                  ✕
+                  <X size={18} />
                 </button>
               </div>
             ))}
             <Button variant="outline" onClick={() => setLines((arr) => [...arr, { name: '', price: '' }])} className="w-full">
-              + Añadir otra cosa
+              <Plus size={16} weight="bold" /> Añadir otra cosa
             </Button>
           </div>
         )}
@@ -206,9 +210,10 @@ export default function QuickExpenseForm({ existing, onDone }: { existing?: Tran
       <div>
         <button
           onClick={() => setMore((v) => !v)}
-          className="text-sm text-slate-400 transition-transform duration-100 ease-out active:scale-95"
+          className="flex min-h-9 items-center gap-1 text-sm font-semibold text-slate-500 transition-transform duration-100 ease-out active:scale-95"
         >
           {more ? 'Ocultar más opciones' : 'Más opciones (nota, pago, pendiente…)'}
+          <CaretDown size={14} weight="bold" className={`transition-transform ${more ? 'rotate-180' : ''}`} />
         </button>
         {more && (
           <div className="mt-3 space-y-3">

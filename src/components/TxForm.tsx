@@ -4,6 +4,7 @@ import { ldb, type Kind, type Transaction, type TxStatus } from '../cloud/locald
 import { useBusiness } from '../cloud/business'
 import { todayISO } from '../lib/format'
 import { Button, Field, Input, Select, Textarea } from './ui'
+import { ArrowDownLeft, ArrowUpRight } from '@phosphor-icons/react'
 
 const PAYMENT_METHODS = ['Efectivo', 'Transferencia', 'Pago móvil', 'Tarjeta', 'Otro']
 
@@ -64,14 +65,14 @@ export default function TxForm({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1">
+      <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1">
         <button onClick={() => setKind('income')}
-          className={`rounded-md py-2 text-sm font-semibold transition ${kind === 'income' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}>
-          💵 Ingreso
+          className={`flex min-h-11 items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-semibold transition ${kind === 'income' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}>
+          <ArrowDownLeft size={16} weight="bold" /> Ingreso
         </button>
         <button onClick={() => setKind('expense')}
-          className={`rounded-md py-2 text-sm font-semibold transition ${kind === 'expense' ? 'bg-white text-red-600 shadow-sm' : 'text-slate-500'}`}>
-          🧾 Gasto
+          className={`flex min-h-11 items-center justify-center gap-1.5 rounded-lg py-2 text-sm font-semibold transition ${kind === 'expense' ? 'bg-white text-red-600 shadow-sm' : 'text-slate-500'}`}>
+          <ArrowUpRight size={16} weight="bold" /> Gasto
         </button>
       </div>
 

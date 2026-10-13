@@ -66,119 +66,212 @@ function header(doc: jsPDF, s: PdfBusiness, title: string) {
 // Estado de cobro que se imprime en la factura (opcional).
 export interface InvoicePay { paid: number; remaining: number }
 
+// ============================================================
+//  FACTURA UNIVERSAL — plantilla profesional válida para cualquier negocio.
+//  Cabecera con logo y datos, bloque cliente + datos del documento, tabla de
+//  conceptos limpia, totales destacados, estado de cobro y pie de contacto.
+// ============================================================
+const BRAND: [number, number, number] = [15, 118, 110] // teal-700
+const BRAND_SOFT: [number, number, number] = [236, 248, 245]
+const INK: [number, number, number] = [28, 25, 23]
+const MUTED: [number, number, number] = [120, 113, 102]
+const LINE: [number, number, number] = [231, 225, 214]
+const AMBER: [number, number, number] = [180, 83, 9]
+const AMBER_SOFT: [number, number, number] = [254, 243, 199]
+
 function buildInvoiceDoc(inv: Invoice, s: PdfBusiness, pay?: InvoicePay): { doc: jsPDF; filename: string } {
   const doc = new jsPDF()
   const TITLES: Record<string, string> = { invoice: 'FACTURA', receipt: 'RECIBO', quote: 'PRESUPUESTO' }
   const title = TITLES[inv.docType] ?? 'FACTURA'
-  header(doc, s, title)
+  const cur = s.currency
+  const L = 16 // margen izquierdo
+  const R = 194 // margen derecho
+  const { subtotal, tax, total } = invoiceTotals(inv)
 
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(10)
-  doc.setTextColor(...GRAY)
-  doc.text(`Nº ${inv.number}`, 196, 28, { align: 'right' })
-  doc.text(`Fecha: ${formatDate(inv.date)}`, 196, 33, { align: 'right' })
+  // Franja de color superior
+  doc.setFillColor(...BRAND)
+  doc.rect(0, 0, 210, 3.5, 'F')
 
-  // Cliente
-  doc.setFontSize(9)
-  doc.setTextColor(...GRAY)
-  doc.text('FACTURAR A', 14, 48)
+  // --- Emisor (logo + nombre + datos) ---
+  let textX = L
+  if (s.logo) {
+    try {
+      const props = doc.getImageProperties(s.logo)
+      const maxH = 20
+      const maxW = 34
+      let w = maxW
+      let h = (props.height / props.width) * w
+      if (h > maxH) { h = maxH; w = (props.width / props.height) * h }
+      doc.addImage(s.logo, 'PNG', L, 13, w, h)
+      textX = L + w + 5
+    } catch { /* logo no embebible: se ignora */ }
+  }
+  doc.setTextColor(...INK)
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(11)
-  doc.setTextColor(...DARK)
-  doc.text(inv.clientName || 'Cliente', 14, 54)
+  doc.setFontSize(17)
+  doc.text(doc.splitTextToSize(s.businessName || 'Mi negocio', 100 - (textX - L))[0], textX, 20)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9)
+  doc.setTextColor(...MUTED)
+  let hy = 25.5
+  for (const line of [s.sector, s.address, s.phone ? `Tel. ${s.phone}` : '']) {
+    if (line) { doc.text(line, textX, hy); hy += 4.4 }
+  }
+
+  // --- Tipo de documento + estado ---
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(24)
+  doc.setTextColor(...BRAND)
+  doc.text(title, R, 21, { align: 'right' })
+  if (pay && inv.docType !== 'quote') {
+    const paid = pay.remaining <= 0
+    const label = paid ? 'PAGADA' : pay.paid > 0 ? 'PAGO PARCIAL' : 'PENDIENTE DE PAGO'
+    doc.setFontSize(8)
+    const w = doc.getTextWidth(label) + 8
+    doc.setFillColor(...(paid ? BRAND_SOFT : AMBER_SOFT))
+    doc.roundedRect(R - w, 25.5, w, 6.5, 3.2, 3.2, 'F')
+    doc.setTextColor(...(paid ? BRAND : AMBER))
+    doc.text(label, R - w / 2, 29.8, { align: 'center' })
+  }
+
+  // --- Bloques: cliente | datos del documento ---
+  const top = Math.max(hy, 36) + 6
+  doc.setDrawColor(...LINE)
+  doc.setLineWidth(0.3)
+  doc.line(L, top - 4, R, top - 4)
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(7.5)
+  doc.setTextColor(...MUTED)
+  doc.text(inv.docType === 'quote' ? 'PRESUPUESTO PARA' : 'FACTURADO A', L, top + 2)
+  doc.setFontSize(12.5)
+  doc.setTextColor(...INK)
+  doc.text(inv.clientName || 'Cliente', L, top + 8.5)
   if (inv.clientDetails) {
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(9)
-    doc.setTextColor(...GRAY)
-    doc.text(doc.splitTextToSize(inv.clientDetails, 90), 14, 59)
+    doc.setTextColor(...MUTED)
+    doc.text(doc.splitTextToSize(inv.clientDetails, 92), L, top + 13.5)
   }
 
-  const { subtotal, tax, total } = invoiceTotals(inv)
+  const meta: [string, string][] = [
+    [inv.docType === 'quote' ? 'Nº presupuesto' : inv.docType === 'receipt' ? 'Nº recibo' : 'Nº factura', inv.number],
+    ['Fecha', formatDate(inv.date)],
+    ['Moneda', cur],
+  ]
+  const mx = 128
+  meta.forEach(([k, v], i) => {
+    const y = top + 2 + i * 6.2
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    doc.setTextColor(...MUTED)
+    doc.text(k, mx, y)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(...INK)
+    doc.text(v, R, y, { align: 'right' })
+  })
 
+  // --- Conceptos ---
   autoTable(doc, {
-    startY: 70,
-    head: [['Descripción', 'Cant.', 'Precio', 'Importe']],
-    body: inv.items.map((it) => [
-      it.description,
-      String(it.qty),
-      moneyPlain(it.price),
-      moneyPlain(it.qty * it.price),
-    ]),
-    theme: 'striped',
-    headStyles: { fillColor: TEAL, halign: 'left' },
+    startY: top + 25,
+    margin: { left: L, right: 210 - R },
+    head: [['#', 'Descripción', { content: 'Cant.', styles: { halign: 'center' } }, { content: 'Precio', styles: { halign: 'right' } }, { content: 'Importe', styles: { halign: 'right' } }]],
+    body: inv.items.map((it, i) => [String(i + 1), it.description, String(it.qty), moneyPlain(it.price), moneyPlain(it.qty * it.price)]),
+    theme: 'plain',
+    headStyles: { fillColor: BRAND_SOFT, textColor: BRAND, fontStyle: 'bold', fontSize: 8.5, cellPadding: { top: 3, bottom: 3, left: 3, right: 3 } },
+    bodyStyles: { textColor: INK, fontSize: 10, cellPadding: { top: 3.4, bottom: 3.4, left: 3, right: 3 } },
     columnStyles: {
-      1: { halign: 'right' },
-      2: { halign: 'right' },
-      3: { halign: 'right' },
+      0: { cellWidth: 9, textColor: MUTED },
+      2: { halign: 'center', cellWidth: 18 },
+      3: { halign: 'right', cellWidth: 30 },
+      4: { halign: 'right', cellWidth: 32, fontStyle: 'bold' },
     },
-    styles: { fontSize: 10 },
+    didDrawCell: (d) => {
+      if (d.section === 'body') {
+        doc.setDrawColor(...LINE)
+        doc.setLineWidth(0.25)
+        doc.line(d.cell.x, d.cell.y + d.cell.height, d.cell.x + d.cell.width, d.cell.y + d.cell.height)
+      }
+    },
   })
 
   // @ts-expect-error autotable añade lastAutoTable en runtime
-  let y = doc.lastAutoTable.finalY + 8
-  const rightX = 196
-  const labelX = 150
+  let y = doc.lastAutoTable.finalY + 7
+  const boxX = 118
+  const boxW = R - boxX
 
-  doc.setFontSize(10)
-  doc.setTextColor(...DARK)
+  // --- Totales ---
   doc.setFont('helvetica', 'normal')
-  // Sin IVA (recibo sencillo): solo el total, más limpio.
+  doc.setFontSize(9.5)
+  doc.setTextColor(...MUTED)
   if (Number(inv.taxRate) > 0) {
-    doc.text('Subtotal', labelX, y)
-    doc.text(`${moneyPlain(subtotal)} ${s.currency}`, rightX, y, { align: 'right' })
-    y += 6
-    doc.text(`IVA (${inv.taxRate}%)`, labelX, y)
-    doc.text(`${moneyPlain(tax)} ${s.currency}`, rightX, y, { align: 'right' })
-    y += 3
+    doc.text('Subtotal', boxX + 3, y)
+    doc.setTextColor(...INK)
+    doc.text(`${moneyPlain(subtotal)} ${cur}`, R - 3, y, { align: 'right' })
+    y += 5.5
+    doc.setTextColor(...MUTED)
+    doc.text(`IVA (${inv.taxRate}%)`, boxX + 3, y)
+    doc.setTextColor(...INK)
+    doc.text(`${moneyPlain(tax)} ${cur}`, R - 3, y, { align: 'right' })
+    y += 4
   }
-  doc.setDrawColor(...TEAL)
-  doc.line(labelX, y, rightX, y)
-  y += 6
+  doc.setFillColor(...BRAND)
+  doc.roundedRect(boxX, y, boxW, 13, 2.5, 2.5, 'F')
+  doc.setTextColor(255, 255, 255)
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(13)
-  doc.setTextColor(...TEAL)
-  doc.text('TOTAL', labelX, y)
-  doc.text(`${moneyPlain(total)} ${s.currency}`, rightX, y, { align: 'right' })
+  doc.setFontSize(10)
+  doc.text('TOTAL', boxX + 4, y + 8.3)
+  doc.setFontSize(14)
+  doc.text(`${moneyPlain(total)} ${cur}`, R - 4, y + 8.6, { align: 'right' })
+  y += 13
 
-  // Estado de cobro: pagado / pendiente (abonos)
   if (pay && inv.docType !== 'quote') {
-    y += 7
-    doc.setFontSize(10)
-    doc.setFont('helvetica', 'normal')
-    doc.setTextColor(...DARK)
-    doc.text('Pagado', labelX, y)
-    doc.text(`${moneyPlain(pay.paid)} ${s.currency}`, rightX, y, { align: 'right' })
     y += 6
-    doc.setFont('helvetica', 'bold')
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9.5)
+    doc.setTextColor(...MUTED)
+    doc.text('Pagado', boxX + 3, y)
+    doc.setTextColor(...INK)
+    doc.text(`${moneyPlain(pay.paid)} ${cur}`, R - 3, y, { align: 'right' })
     if (pay.remaining > 0) {
-      doc.setTextColor(...RED)
-      doc.text('Pendiente', labelX, y)
-      doc.text(`${moneyPlain(pay.remaining)} ${s.currency}`, rightX, y, { align: 'right' })
-    } else {
-      doc.setTextColor(...TEAL)
-      doc.text('PAGADO', rightX, y, { align: 'right' })
+      y += 5.5
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(...AMBER)
+      doc.text('Pendiente', boxX + 3, y)
+      doc.text(`${moneyPlain(pay.remaining)} ${cur}`, R - 3, y, { align: 'right' })
     }
   }
 
+  // --- Notas ---
   if (inv.notes) {
-    y += 14
+    y += 12
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(9)
-    doc.setTextColor(...GRAY)
-    doc.text('Notas', 14, y)
+    doc.setFontSize(7.5)
+    doc.setTextColor(...MUTED)
+    doc.text('NOTAS', L, y)
     doc.setFont('helvetica', 'normal')
-    doc.text(doc.splitTextToSize(inv.notes, 180), 14, y + 5)
+    doc.setFontSize(9.5)
+    doc.setTextColor(...INK)
+    doc.text(doc.splitTextToSize(inv.notes, R - L), L, y + 5)
   }
 
-  // Pie
-  doc.setFontSize(8)
-  doc.setTextColor(...GRAY)
-  doc.text(
-    `${TITLES[inv.docType] ? TITLES[inv.docType].charAt(0) + TITLES[inv.docType].slice(1).toLowerCase() : 'Documento'} generado con GEmprende`,
-    105,
-    288,
-    { align: 'center' },
-  )
+  // --- Pie ---
+  const fy = 272
+  doc.setDrawColor(...LINE)
+  doc.setLineWidth(0.3)
+  doc.line(L, fy, R, fy)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10)
+  doc.setTextColor(...INK)
+  doc.text(inv.docType === 'quote' ? 'Gracias por su confianza.' : 'Gracias por su compra.', L, fy + 7)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8.5)
+  doc.setTextColor(...MUTED)
+  const contact = [s.businessName, s.phone ? `Tel. ${s.phone}` : '', s.address].filter(Boolean).join('  ·  ')
+  doc.text(doc.splitTextToSize(contact, R - L)[0] ?? '', L, fy + 12)
+  doc.setTextColor(...BRAND)
+  doc.setFontSize(7.5)
+  doc.text('Hecho con GEmprende · emprendege.mercadosemu.com', R, fy + 7, { align: 'right' })
 
   return { doc, filename: `${title}-${inv.number}.pdf` }
 }

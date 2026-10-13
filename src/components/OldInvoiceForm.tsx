@@ -6,6 +6,7 @@ import { money, todayISO } from '../lib/format'
 import { fileToDataURL } from '../lib/image'
 import { registerOldInvoice, WALK_IN } from '../lib/invoiceLedger'
 import { Button, Field, Input } from './ui'
+import { Camera, PencilSimpleLine, CheckCircle, Clock, HandCoins } from '@phosphor-icons/react'
 
 type Mode = 'photo' | 'total'
 type Pay = 'paid' | 'debt' | 'partial'
@@ -66,18 +67,21 @@ export default function OldInvoiceForm({ onDone }: { onDone: () => void }) {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-slate-500">
-        Pasa aquí las facturas que hiciste en papel. Se guardan con su fecha y cuentan en tu historial, tus clientes y el informe para crédito.
-      </p>
+      <div className="flex items-center gap-3 rounded-2xl bg-slate-50 p-3">
+        <img src="/ill/talonario.webp" alt="" aria-hidden="true" className="h-20 w-24 shrink-0 rounded-xl object-cover" />
+        <p className="text-sm text-slate-600">
+          Pasa aquí las facturas que hiciste en papel. Se guardan con su fecha y cuentan en tu historial, tus clientes y el informe para crédito.
+        </p>
+      </div>
 
       <div className="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1">
-        <button onClick={() => setMode('photo')} className={`rounded-md py-2 text-sm font-semibold ${mode === 'photo' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}>📷 Con foto</button>
-        <button onClick={() => setMode('total')} className={`rounded-md py-2 text-sm font-semibold ${mode === 'total' ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}>✍️ Solo el total</button>
+        <button onClick={() => setMode('photo')} className={`flex min-h-10 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold ${mode === 'photo' ? 'bg-white text-teal-800 shadow-sm' : 'text-slate-500'}`}><Camera size={18} weight={mode === 'photo' ? 'fill' : 'regular'} /> Con foto</button>
+        <button onClick={() => setMode('total')} className={`flex min-h-10 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold ${mode === 'total' ? 'bg-white text-teal-800 shadow-sm' : 'text-slate-500'}`}><PencilSimpleLine size={18} weight={mode === 'total' ? 'fill' : 'regular'} /> Solo el total</button>
       </div>
 
       {saved.count > 0 && (
         <div className="rounded-lg bg-teal-50 px-3 py-2 text-sm text-teal-800">
-          ✓ {saved.count} factura{saved.count > 1 ? 's' : ''} antigua{saved.count > 1 ? 's' : ''} registrada{saved.count > 1 ? 's' : ''} · <span className="ge-nums font-medium">{money(saved.sum)}</span>
+          <CheckCircle size={16} weight="fill" className="mr-1 inline -mt-0.5" />{saved.count} factura{saved.count > 1 ? 's' : ''} antigua{saved.count > 1 ? 's' : ''} registrada{saved.count > 1 ? 's' : ''} · <span className="ge-nums font-medium">{money(saved.sum)}</span>
         </div>
       )}
 
@@ -92,7 +96,7 @@ export default function OldInvoiceForm({ onDone }: { onDone: () => void }) {
           ) : (
             <button onClick={() => fileRef.current?.click()}
               className="flex w-full flex-col items-center gap-1 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 py-8 text-slate-500 active:scale-[0.99]">
-              <span className="text-3xl">📷</span>
+              <Camera size={36} weight="duotone" className="text-teal-700" />
               <span className="font-medium">Hacer foto de la hoja</span>
               <span className="text-xs">o elegirla de la galería</span>
             </button>
@@ -124,10 +128,10 @@ export default function OldInvoiceForm({ onDone }: { onDone: () => void }) {
       <div>
         <div className="mb-2 text-sm font-medium text-slate-700">¿Te la pagaron?</div>
         <div className="grid grid-cols-3 gap-2">
-          {([['paid', '✅', 'Sí, pagada'], ['debt', '🕒', 'Aún me debe'], ['partial', '💵', 'Pagó parte']] as [Pay, string, string][]).map(([p, icon, lbl]) => (
+          {([['paid', CheckCircle, 'Sí, pagada'], ['debt', Clock, 'Aún me debe'], ['partial', HandCoins, 'Pagó parte']] as [Pay, typeof CheckCircle, string][]).map(([p, Icon, lbl]) => (
             <button key={p} onClick={() => setPay(p)}
-              className={`rounded-xl border px-2 py-2.5 text-sm font-semibold transition-transform active:scale-95 ${pay === p ? 'border-teal-600 bg-teal-50 text-teal-700' : 'border-slate-200 bg-white text-slate-600'}`}>
-              <div>{icon}</div>{lbl}
+              className={`flex flex-col items-center gap-1 rounded-2xl px-2 py-3 text-sm font-semibold transition-[transform,background-color] active:scale-95 ${pay === p ? 'bg-teal-700 text-white' : 'bg-slate-50 text-slate-600 ring-1 ring-slate-200'}`}>
+              <Icon size={22} weight={pay === p ? 'fill' : 'regular'} />{lbl}
             </button>
           ))}
         </div>

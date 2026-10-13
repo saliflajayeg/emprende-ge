@@ -5,6 +5,7 @@ import { useBusiness } from '../cloud/business'
 import { usePerms } from '../cloud/perms'
 import { money } from '../lib/format'
 import { Button, Card, Modal, Field, Input, Textarea, EmptyState, IconButton } from '../components/ui'
+import { PencilSimple, Trash } from '@phosphor-icons/react'
 
 function EmpForm({ existing, onDone }: { existing?: Employee; onDone: () => void }) {
   const [form, setForm] = useState({
@@ -86,8 +87,8 @@ export default function Employees() {
                   {e.notes && <div className="mt-1 text-xs text-slate-400">{e.notes}</div>}
                 </div>
                 <div className="flex shrink-0 gap-1">
-                  <IconButton onClick={() => setModal({ emp: e })} title="Editar">✎</IconButton>
-                  {canDelete && <IconButton onClick={() => remove(e.id)} title="Eliminar" className="text-slate-400 hover:text-red-600">🗑</IconButton>}
+                  <IconButton onClick={() => setModal({ emp: e })} title="Editar"><PencilSimple size={20} /></IconButton>
+                  {canDelete && <IconButton onClick={() => remove(e.id)} title="Eliminar" className="text-slate-400 hover:text-red-600"><Trash size={20} /></IconButton>}
                 </div>
               </div>
             </Card>

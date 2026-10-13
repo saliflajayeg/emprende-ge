@@ -7,6 +7,7 @@ import { invoicePDF, invoiceTotals, type InvoicePay, type PdfBusiness } from '..
 import { shareInvoice } from '../lib/share'
 import { addInvoicePayment, linkedTxs, paymentSummary, syncInvoiceLedger, WALK_IN } from '../lib/invoiceLedger'
 import { Button, Field, Input, Select, Textarea } from './ui'
+import { Receipt, Note, User, Phone, Storefront, Plus, Minus, X, CheckCircle, Clock, HandCoins, CaretDown, WhatsappLogo, FloppyDisk, FilePdf, MagnifyingGlass } from '@phosphor-icons/react'
 
 export const pdfBiz = (b: Business): PdfBusiness => ({
   businessName: b.name,
@@ -18,7 +19,6 @@ export const pdfBiz = (b: Business): PdfBusiness => ({
 })
 
 const DOC_LABEL: Record<DocType, string> = { invoice: 'Factura', receipt: 'Recibo', quote: 'Presupuesto' }
-const DOC_ICON: Record<DocType, string> = { invoice: '🧾', receipt: '🧻', quote: '📄' }
 export { WALK_IN }
 const METHODS = ['Efectivo', 'Transferencia', 'Pago móvil', 'Tarjeta', 'Otro']
 
@@ -195,119 +195,149 @@ export default function InvoiceForm({
     setBusy(false)
   }
 
+  const inCart = (name: string) => items.find((x) => x.description.trim().toLowerCase() === name.trim().toLowerCase())?.qty ?? 0
+  const Step = ({ n, title, right }: { n: number; title: string; right?: React.ReactNode }) => (
+    <div className="mb-3 flex items-center justify-between gap-2">
+      <div className="flex items-center gap-2.5">
+        <span className="grid h-6 w-6 place-items-center rounded-full bg-teal-700 text-xs font-bold text-white">{n}</span>
+        <span className="font-display text-base font-bold text-slate-900">{title}</span>
+      </div>
+      {right}
+    </div>
+  )
+  const payOptions: [PayMode, typeof CheckCircle, string][] = [
+    ['paid', CheckCircle, 'Pagado'],
+    ['debt', Clock, 'A deber'],
+    ['partial', HandCoins, 'Abono'],
+  ]
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {allowedTypes.length > 1 && (
-        <div className="grid gap-1 rounded-lg bg-slate-100 p-1" style={{ gridTemplateColumns: `repeat(${allowedTypes.length}, minmax(0, 1fr))` }}>
+        <div className="grid gap-1 rounded-xl bg-slate-100 p-1" style={{ gridTemplateColumns: `repeat(${allowedTypes.length}, minmax(0, 1fr))` }}>
           {allowedTypes.map((t) => (
             <button key={t} onClick={() => setDocType(t)}
-              className={`rounded-md py-2 text-sm font-semibold ${docType === t ? 'bg-white text-teal-700 shadow-sm' : 'text-slate-500'}`}>
-              {DOC_ICON[t]} {DOC_LABEL[t]}
+              className={`flex min-h-10 items-center justify-center gap-1.5 rounded-lg text-sm font-semibold transition-colors ${docType === t ? 'bg-white text-teal-800 shadow-sm' : 'text-slate-500'}`}>
+              {t === 'receipt' ? <Note size={18} weight={docType === t ? 'fill' : 'regular'} /> : <Receipt size={18} weight={docType === t ? 'fill' : 'regular'} />}
+              {DOC_LABEL[t]}
             </button>
           ))}
         </div>
       )}
 
       {/* 1) Cliente */}
-      <div>
-        <div className="mb-1 flex items-center justify-between">
-          <span className="text-sm font-medium text-slate-700">Cliente</span>
-          <button onClick={() => { setClientName(WALK_IN); setContactId(''); setClientPhone('') }}
-            className={`rounded-full px-2.5 py-1 text-xs font-medium transition-transform active:scale-95 ${walkIn ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
-            🏪 Mostrador
+      <section>
+        <Step n={1} title="Cliente" right={
+          <button onClick={() => { setClientName(walkIn ? '' : WALK_IN); setContactId(''); setClientPhone('') }}
+            className={`flex min-h-9 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition-[transform,background-color] active:scale-95 ${walkIn ? 'bg-teal-700 text-white' : 'bg-slate-100 text-slate-600'}`}>
+            <Storefront size={16} weight={walkIn ? 'fill' : 'regular'} /> Mostrador
           </button>
-        </div>
-        <div className="grid grid-cols-[1fr_auto] gap-2">
-          <Input list="ge-clients" value={clientName} onChange={(e) => onClientName(e.target.value)} placeholder="Nombre del cliente" />
-          <Input type="tel" inputMode="tel" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} placeholder="Teléfono" className="w-32" />
+        } />
+        <div className="space-y-2.5">
+          <div className="relative">
+            <User size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Input list="ge-clients" value={clientName} onChange={(e) => onClientName(e.target.value)} placeholder="Nombre del cliente" className="pl-10" />
+          </div>
+          {!walkIn && (
+            <div className="relative">
+              <Phone size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Input type="tel" inputMode="tel" value={clientPhone} onChange={(e) => setClientPhone(e.target.value)} placeholder="Teléfono (para enviarle la factura)" className="pl-10" />
+            </div>
+          )}
         </div>
         <datalist id="ge-clients">
           {(contacts ?? []).map((c) => <option key={c.id} value={c.name} />)}
         </datalist>
-      </div>
+      </section>
 
       {/* 2) Productos / servicios */}
-      <div>
-        <div className="mb-2 text-sm font-medium text-slate-700">¿Qué vendiste?</div>
+      <section>
+        <Step n={2} title="¿Qué vendiste?" />
         {(catalog ?? []).length > 0 && (
-          <div className="mb-3 space-y-2">
+          <div className="mb-3">
             {(catalog ?? []).length > 8 && (
-              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar en tu catálogo…" />
+              <div className="relative mb-2.5">
+                <MagnifyingGlass size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar en tu catálogo…" className="pl-10" />
+              </div>
             )}
-            <div className="flex flex-wrap gap-2">
-              {shownCatalog.map((c) => (
-                <button key={c.id} onClick={() => addFromCatalog(c)}
-                  className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 transition-transform active:scale-95">
-                  + {c.name}{c.price ? <span className="text-slate-400"> · {money(c.price)}</span> : null}
-                </button>
-              ))}
+            <div className="-mx-5 flex snap-x gap-2.5 overflow-x-auto px-5 pb-1 [scrollbar-width:none]">
+              {shownCatalog.map((c) => {
+                const q = inCart(c.name)
+                return (
+                  <button key={c.id} onClick={() => addFromCatalog(c)}
+                    className={`relative flex w-32 shrink-0 snap-start flex-col items-start rounded-2xl p-3 text-left transition-[transform,background-color,box-shadow] active:scale-95 ${q ? 'bg-teal-50 ring-2 ring-teal-600' : 'bg-slate-50 ring-1 ring-slate-200'}`}>
+                    <span className="line-clamp-2 min-h-10 text-sm font-semibold leading-tight text-slate-800">{c.name}</span>
+                    <span className="ge-nums mt-1.5 text-xs font-semibold text-slate-500">{c.price ? money(c.price) : 'Sin precio'}</span>
+                    <span className={`absolute right-2 top-2 grid h-6 min-w-6 place-items-center rounded-full px-1.5 text-xs font-bold ${q ? 'bg-teal-700 text-white' : 'bg-white text-teal-700 ring-1 ring-slate-200'}`}>
+                      {q ? q : <Plus size={12} weight="bold" />}
+                    </span>
+                  </button>
+                )
+              })}
             </div>
           </div>
         )}
-        <div className="space-y-2">
+        <div className="space-y-2.5">
           {items.map((it, i) => (
-            <div key={i} className="grid grid-cols-[1fr_52px_92px_32px] items-center gap-2">
-              <Input placeholder="Producto o servicio" value={it.description} onChange={(e) => setItem(i, { description: e.target.value })} />
-              <Input type="number" inputMode="numeric" title="Cantidad" value={it.qty} onChange={(e) => setItem(i, { qty: Number(e.target.value) })} className="text-center" />
-              <Input type="number" inputMode="numeric" title="Precio" value={it.price || ''} placeholder="Precio" onChange={(e) => setItem(i, { price: Number(e.target.value) })} className="text-right" />
-              <button onClick={() => removeItem(i)} className="grid h-9 w-8 place-items-center text-slate-400 active:scale-90" title="Quitar">✕</button>
+            <div key={i} className="rounded-2xl bg-white p-3 ring-1 ring-slate-200">
+              <div className="flex items-center gap-2">
+                <Input placeholder="Producto o servicio" value={it.description} onChange={(e) => setItem(i, { description: e.target.value })} className="!min-h-10 border-transparent bg-slate-50 !py-2 font-semibold focus:bg-white" />
+                <button onClick={() => removeItem(i)} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-slate-400 transition-transform hover:bg-slate-100 hover:text-red-600 active:scale-90" title="Quitar" aria-label="Quitar">
+                  <X size={18} weight="bold" />
+                </button>
+              </div>
+              <div className="mt-2.5 flex items-center gap-2.5">
+                <div className="flex items-center rounded-xl bg-slate-100 p-1">
+                  <button onClick={() => setItem(i, { qty: Math.max(1, (Number(it.qty) || 1) - 1) })} className="grid h-9 w-9 place-items-center rounded-lg bg-white text-slate-700 shadow-sm active:scale-90" aria-label="Menos"><Minus size={16} weight="bold" /></button>
+                  <input type="number" inputMode="numeric" value={it.qty} onChange={(e) => setItem(i, { qty: Number(e.target.value) })} className="ge-nums w-11 bg-transparent text-center text-base font-bold text-slate-900 outline-none" aria-label="Cantidad" />
+                  <button onClick={() => setItem(i, { qty: (Number(it.qty) || 0) + 1 })} className="grid h-9 w-9 place-items-center rounded-lg bg-white text-slate-700 shadow-sm active:scale-90" aria-label="Más"><Plus size={16} weight="bold" /></button>
+                </div>
+                <div className="relative min-w-0 flex-1">
+                  <Input type="number" inputMode="numeric" value={it.price || ''} placeholder="Precio" onChange={(e) => setItem(i, { price: Number(e.target.value) })} className="ge-nums !min-h-11 pr-12 text-right font-semibold" aria-label="Precio" />
+                  <span className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-400">{current?.currency ?? 'XAF'}</span>
+                </div>
+              </div>
+              {it.qty > 1 && it.price > 0 && (
+                <div className="ge-nums mt-2 text-right text-xs font-semibold text-slate-500">{it.qty} × {money(it.price)} = <span className="text-slate-800">{money(it.qty * it.price)}</span></div>
+              )}
             </div>
           ))}
         </div>
-        <button onClick={() => setItems((a) => [...a, { description: '', qty: 1, price: 0 }])} className="mt-2 text-sm font-medium text-teal-600">
-          + Añadir otra línea
+        <button onClick={() => setItems((a) => [...a, { description: '', qty: 1, price: 0 }])}
+          className="mt-2.5 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-slate-300 text-sm font-semibold text-slate-600 transition-colors hover:border-teal-500 hover:text-teal-700">
+          <Plus size={16} weight="bold" /> Añadir otro producto
         </button>
-      </div>
-
-      {/* Total */}
-      <div className="rounded-xl bg-slate-50 p-4">
-        {taxRate > 0 && (
-          <>
-            <div className="flex justify-between text-sm text-slate-500"><span>Subtotal</span><span className="ge-nums">{money(subtotal)}</span></div>
-            <div className="flex justify-between text-sm text-slate-500">
-              <span>IVA ({taxRate}%) · <button onClick={() => setTaxRate(0)} className="font-medium text-amber-700 underline">quitar IVA</button></span>
-              <span className="ge-nums">{money(tax)}</span>
-            </div>
-          </>
-        )}
-        <div className="flex items-baseline justify-between">
-          <span className="font-semibold text-slate-700">Total</span>
-          <span className="ge-nums text-2xl font-bold text-teal-700">{money(total)}</span>
-        </div>
-      </div>
+      </section>
 
       {/* 3) Cobro */}
       {!isQuote && isNew && (
-        <div>
-          <div className="mb-2 text-sm font-medium text-slate-700">¿Cómo te pagó?</div>
+        <section>
+          <Step n={3} title="¿Cómo te pagó?" />
           <div className="grid grid-cols-3 gap-2">
-            {([
-              ['paid', '✅', 'Pagado'],
-              ['debt', '🕒', 'A deber'],
-              ['partial', '💵', 'Abono'],
-            ] as [PayMode, string, string][]).map(([m, icon, lbl]) => (
+            {payOptions.map(([m, Icon, lbl]) => (
               <button key={m} onClick={() => setPayMode(m)}
-                className={`rounded-xl border px-2 py-3 text-sm font-semibold transition-transform active:scale-95 ${payMode === m ? 'border-teal-600 bg-teal-50 text-teal-700' : 'border-slate-200 bg-white text-slate-600'}`}>
-                <div className="text-lg">{icon}</div>{lbl}
+                className={`flex flex-col items-center gap-1 rounded-2xl px-2 py-3 text-sm font-semibold transition-[transform,background-color] active:scale-95 ${payMode === m ? 'bg-teal-700 text-white shadow-[0_8px_18px_-8px_rgba(15,118,110,0.7)]' : 'bg-slate-50 text-slate-600 ring-1 ring-slate-200'}`}>
+                <Icon size={24} weight={payMode === m ? 'fill' : 'regular'} />{lbl}
               </button>
             ))}
           </div>
           {payMode === 'partial' && (
             <div className="mt-3">
               <Field label="¿Cuánto entregó ahora?">
-                <Input type="number" inputMode="numeric" value={partial} onChange={(e) => setPartial(e.target.value)} placeholder="0" />
+                <Input type="number" inputMode="numeric" value={partial} onChange={(e) => setPartial(e.target.value)} placeholder="0" className="ge-nums" />
               </Field>
-              {Number(partial) > 0 && <p className="mt-1 text-xs text-slate-500">Quedará debiendo <b>{money(Math.max(0, total - Number(partial)))}</b>.</p>}
+              {Number(partial) > 0 && <p className="mt-1.5 text-sm text-slate-500">Quedará debiendo <b className="text-amber-700">{money(Math.max(0, total - Number(partial)))}</b>.</p>}
             </div>
           )}
-          {payMode === 'debt' && <p className="mt-2 text-xs text-slate-500">Quedará como deuda del cliente hasta que pague.</p>}
-        </div>
+          {payMode === 'debt' && <p className="mt-2 text-sm text-slate-500">Quedará como deuda del cliente hasta que pague.</p>}
+        </section>
       )}
 
       {!isQuote && !isNew && summary && !isLegacy && (
-        <div className={`rounded-lg px-3 py-2 text-sm ${summary.remaining > 0 ? 'bg-amber-50 text-amber-800' : 'bg-teal-50 text-teal-700'}`}>
-          Cobrado {money(summary.paid)}{summary.remaining > 0 ? ` · Debe ${money(summary.remaining)}` : ' · Pagada ✓'}
-          <div className="text-xs opacity-80">Los abonos se registran desde la lista de facturas.</div>
+        <div className={`rounded-xl px-3.5 py-3 text-sm ${summary.remaining > 0 ? 'bg-amber-50 text-amber-800' : 'bg-teal-50 text-teal-800'}`}>
+          <div className="font-semibold">Cobrado {money(summary.paid)}{summary.remaining > 0 ? ` · Debe ${money(summary.remaining)}` : ' · Pagada'}</div>
+          <div className="text-xs opacity-80">Los pagos se registran desde la lista de facturas.</div>
         </div>
       )}
 
@@ -321,8 +351,9 @@ export default function InvoiceForm({
       )}
 
       {/* Más opciones */}
-      <div>
-        <button onClick={() => setMore((v) => !v)} className="text-sm text-slate-400">
+      <section>
+        <button onClick={() => setMore((v) => !v)} className="flex min-h-10 items-center gap-1.5 text-sm font-semibold text-slate-500">
+          <CaretDown size={16} weight="bold" className={`transition-transform ${more ? 'rotate-180' : ''}`} />
           {more ? 'Ocultar más opciones' : 'Más opciones (número, fecha, notas…)'}
         </button>
         {more && (
@@ -342,15 +373,27 @@ export default function InvoiceForm({
             <Field label="Notas"><Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Condiciones, agradecimiento…" /></Field>
           </div>
         )}
-      </div>
+      </section>
 
-      {error && <p className="text-sm text-red-500">{error}</p>}
-
-      <div className="space-y-2">
-        <Button onClick={() => save('whatsapp')} disabled={busy} className="w-full !bg-[#25D366] hover:!bg-[#1ebe5b]">📲 Guardar y enviar por WhatsApp</Button>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => save('save')} disabled={busy} className="flex-1">Guardar</Button>
-          <Button variant="outline" onClick={() => save('pdf')} disabled={busy} className="flex-1">Guardar y PDF</Button>
+      {/* Barra fija: total + enviar, siempre a mano */}
+      <div className="sticky bottom-0 -mx-5 -mb-[calc(1.25rem+env(safe-area-inset-bottom))] border-t border-slate-100 bg-white/95 px-5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3 backdrop-blur">
+        {taxRate > 0 && (
+          <div className="mb-1 flex justify-between text-xs text-slate-500">
+            <span>Subtotal {money(subtotal)} · IVA {taxRate}% <button onClick={() => setTaxRate(0)} className="font-semibold text-amber-700 underline">quitar</button></span>
+            <span className="ge-nums">{money(tax)}</span>
+          </div>
+        )}
+        <div className="mb-3 flex items-baseline justify-between">
+          <span className="text-sm font-semibold text-slate-500">Total</span>
+          <span className="ge-nums font-display text-3xl font-extrabold tracking-tight text-slate-900">{money(total)}</span>
+        </div>
+        {error && <p className="mb-2 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{error}</p>}
+        <Button onClick={() => save('whatsapp')} disabled={busy} className="w-full !bg-[#1DA851] !text-base hover:!bg-[#178f45] !shadow-[0_8px_20px_-8px_rgba(29,168,81,0.7)]">
+          <WhatsappLogo size={22} weight="fill" /> {busy ? 'Guardando…' : 'Guardar y enviar por WhatsApp'}
+        </Button>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          <Button variant="outline" onClick={() => save('save')} disabled={busy}><FloppyDisk size={18} /> Guardar</Button>
+          <Button variant="outline" onClick={() => save('pdf')} disabled={busy}><FilePdf size={18} /> Guardar y PDF</Button>
         </div>
       </div>
     </div>

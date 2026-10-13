@@ -7,6 +7,7 @@ import { legacySummary, importLegacy, type LegacySummary } from '../cloud/import
 import { fileToDataURL } from '../lib/image'
 import { BUSINESS_TYPES, MODULES, TOGGLEABLE, MODULE_DEPS, modulesFor, withDeps, type ModuleId } from '../modules'
 import { Card, Button, Field, Input, Select } from '../components/ui'
+import { Storefront, Camera, BellRinging, UsersThree, DownloadSimple, LinkSimple, CloudCheck, UserPlus, X } from '@phosphor-icons/react'
 import { pushState, isSubscribed, enablePush, disablePush, type PushState } from '../lib/push'
 
 const TABLE_LABEL: Record<string, string> = {
@@ -39,7 +40,7 @@ function CatList({
           >
             <span className="h-2.5 w-2.5 rounded-full" style={{ background: c.color }} />
             {c.name}
-            <button onClick={() => onDelete(c.id)} className="text-slate-300 hover:text-red-500">✕</button>
+            <button onClick={() => onDelete(c.id)} aria-label="Quitar" className="text-slate-300 hover:text-red-500"><X size={14} weight="bold" /></button>
           </span>
         ))}
       </div>
@@ -83,7 +84,7 @@ function PushCard({ businessId }: { businessId: string }) {
 
   return (
     <Card>
-      <h2 className="mb-1 font-semibold text-slate-800">🔔 Avisos de nuevas solicitudes</h2>
+      <h2 className="mb-1 flex items-center gap-2 font-semibold text-slate-800"><BellRinging size={20} weight="duotone" className="text-teal-700" /> Avisos de nuevas solicitudes</h2>
       <p className="mb-3 text-sm text-slate-500">
         Recibe una notificación cuando un cliente te pida una <b>cita</b> o haga un <b>pedido</b> desde tu enlace,
         aunque no tengas la app abierta.
@@ -95,7 +96,7 @@ function PushCard({ businessId }: { businessId: string }) {
       ) : subscribed ? (
         <Button variant="outline" onClick={disable} disabled={busy}>{busy ? 'Un momento…' : 'Desactivar avisos'}</Button>
       ) : (
-        <Button onClick={enable} disabled={busy}>{busy ? 'Activando…' : '🔔 Activar avisos'}</Button>
+        <Button onClick={enable} disabled={busy}>{busy ? 'Activando…' : <><BellRinging size={18} weight="fill" /> Activar avisos</>}</Button>
       )}
       {msg && <p className="mt-2 text-xs text-slate-500">{msg}</p>}
       <p className="mt-2 text-xs text-slate-400">Debes activarlo en cada dispositivo donde quieras recibir los avisos.</p>
@@ -239,15 +240,15 @@ export default function Settings() {
         <h2 className="mb-4 font-semibold text-slate-800">Datos del negocio</h2>
 
         <div className="mb-4 flex items-center gap-4">
-          <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50 text-2xl text-slate-300">
-            {current.logo ? <img src={current.logo} alt="Logo" className="h-full w-full object-contain" /> : '🏢'}
+          <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-slate-400">
+            {current.logo ? <img src={current.logo} alt="Logo" className="h-full w-full object-contain" /> : <Storefront size={32} weight="duotone" />}
           </div>
           <div className="space-y-1">
             <div className="text-sm font-medium text-slate-700">Logo del negocio</div>
             <p className="text-xs text-slate-400">Aparecerá en tus facturas y recibos. PNG o JPG.</p>
             <div className="flex gap-2 pt-1">
-              <label className="inline-block cursor-pointer rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
-                {current.logo ? 'Cambiar logo' : '📷 Subir logo'}
+              <label className="inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                <Camera size={18} /> {current.logo ? 'Cambiar logo' : 'Subir logo'}
                 <input type="file" accept="image/*" className="hidden" onChange={(e) => onLogo(e.target.files?.[0] || undefined)} />
               </label>
               {current.logo && (
@@ -350,7 +351,7 @@ export default function Settings() {
       </Card>
 
       <Card>
-        <h2 className="mb-1 font-semibold text-slate-800">👥 Equipo (acceso compartido)</h2>
+        <h2 className="mb-1 flex items-center gap-2 font-semibold text-slate-800"><UsersThree size={20} weight="duotone" className="text-teal-700" /> Equipo (acceso compartido)</h2>
         <p className="mb-3 text-sm text-slate-500">
           Da acceso a <b>una</b> persona más (un empleado). Comparte con ella los mismos datos, en tiempo real y
           también sin conexión. El empleado puede registrar y editar, pero no borra, ni ve Informes ni Ajustes.
@@ -387,7 +388,7 @@ export default function Settings() {
               </div>
             ) : (
               <Button onClick={genInvite} disabled={inviteBusy}>
-                {inviteBusy ? 'Generando…' : '➕ Invitar a un empleado'}
+                {inviteBusy ? 'Generando…' : <><UserPlus size={18} weight="bold" /> Invitar a un empleado</>}
               </Button>
             )}
           </div>
@@ -396,7 +397,7 @@ export default function Settings() {
 
       {legacy?.found && (
         <Card className="border-teal-200 bg-teal-50/40">
-          <h2 className="mb-1 font-semibold text-slate-800">📥 Importar datos anteriores</h2>
+          <h2 className="mb-1 flex items-center gap-2 font-semibold text-slate-800"><DownloadSimple size={20} weight="duotone" className="text-teal-700" /> Importar datos anteriores</h2>
           {legacy.imported ? (
             <p className="text-sm text-slate-500">
               Ya importaste los datos de este dispositivo a este negocio. Si necesitas volver a hacerlo,
@@ -418,7 +419,7 @@ export default function Settings() {
                   ))}
               </div>
               <Button onClick={runImport} disabled={importBusy}>
-                {importBusy ? 'Importando…' : '📥 Importar mis datos anteriores'}
+                {importBusy ? 'Importando…' : <><DownloadSimple size={18} weight="bold" /> Importar mis datos anteriores</>}
               </Button>
               <p className="mt-2 text-xs text-slate-400">
                 Hazlo en el móvil donde usabas la app antes. Los datos antiguos no se borran de tu dispositivo.
@@ -431,7 +432,7 @@ export default function Settings() {
       {current?.id && <PushCard businessId={current.id} />}
 
       <Card>
-        <h2 className="mb-1 font-semibold text-slate-800">🔗 Enlace de reservas</h2>
+        <h2 className="mb-1 flex items-center gap-2 font-semibold text-slate-800"><LinkSimple size={20} weight="duotone" className="text-teal-700" /> Enlace de reservas</h2>
         <p className="mb-3 text-sm text-slate-500">
           Comparte este enlace en tus redes sociales o WhatsApp. Tus clientes podrán <b>pedir cita</b> eligiendo
           servicio y día; te llegará como <b>solicitud por aprobar</b> en la sección de Citas.
@@ -450,7 +451,7 @@ export default function Settings() {
       </Card>
 
       <Card>
-        <h2 className="mb-1 font-semibold text-slate-800">☁️ Tus datos en la nube</h2>
+        <h2 className="mb-1 flex items-center gap-2 font-semibold text-slate-800"><CloudCheck size={20} weight="duotone" className="text-teal-700" /> Tus datos en la nube</h2>
         <p className="text-sm text-slate-500">
           Tus datos se guardan en este dispositivo y se sincronizan automáticamente a la nube cuando hay conexión.
           Puedes trabajar sin red: todo se subirá solo al reconectar. Al iniciar sesión en otro dispositivo (o al

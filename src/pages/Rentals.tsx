@@ -5,6 +5,7 @@ import { useBusiness } from '../cloud/business'
 import { usePerms } from '../cloud/perms'
 import { money, formatDate, todayISO, currentMonthKey, monthLabel } from '../lib/format'
 import { Button, Card, Modal, Field, Input, Select, Textarea, EmptyState, IconButton } from '../components/ui'
+import { PencilSimple, Trash, ClockCounterClockwise } from '@phosphor-icons/react'
 import { rentalsReportPDF, type PdfBusiness, type RentalsReport } from '../lib/pdf'
 import { shareRentalsReport } from '../lib/share'
 
@@ -358,9 +359,9 @@ export default function Rentals() {
                     <div className="text-xs text-slate-400">{TYPE_LABEL[u.type]}{vacant ? ' · Vacío' : u.tenantName ? ` · ${u.tenantName}` : ''}</div>
                   </div>
                   <div className="flex shrink-0 gap-1">
-                    <IconButton onClick={() => setHistory(u)} title="Historial">🕑</IconButton>
-                    <IconButton onClick={() => setModal({ unit: u })} title="Editar">✎</IconButton>
-                    {canDelete && <IconButton onClick={() => removeUnit(u)} title="Eliminar" className="text-slate-400 hover:text-red-600">🗑</IconButton>}
+                    <IconButton onClick={() => setHistory(u)} title="Historial"><ClockCounterClockwise size={20} /></IconButton>
+                    <IconButton onClick={() => setModal({ unit: u })} title="Editar"><PencilSimple size={20} /></IconButton>
+                    {canDelete && <IconButton onClick={() => removeUnit(u)} title="Eliminar" className="text-slate-400 hover:text-red-600"><Trash size={20} /></IconButton>}
                   </div>
                 </div>
 

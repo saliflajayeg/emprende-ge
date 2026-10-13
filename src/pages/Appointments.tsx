@@ -5,6 +5,7 @@ import { useBusiness } from '../cloud/business'
 import { usePerms } from '../cloud/perms'
 import { money, formatDate, todayISO } from '../lib/format'
 import { Button, Card, Modal, Field, Input, Select, Textarea, EmptyState, IconButton } from '../components/ui'
+import { PencilSimple, Trash, Check } from '@phosphor-icons/react'
 import PendingRequests from '../components/PendingRequests'
 
 const STATUS: Record<ApptStatus, { label: string; cls: string }> = {
@@ -171,13 +172,13 @@ export default function Appointments() {
               <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS[a.status].cls}`}>{STATUS[a.status].label}</span>
               <div className="flex gap-0.5">
                 {a.status !== 'done' && (
-                  <IconButton onClick={() => setStatus(a, 'done')} title="Marcar atendida">✓</IconButton>
+                  <IconButton onClick={() => setStatus(a, 'done')} title="Marcar atendida"><Check size={20} weight="bold" /></IconButton>
                 )}
                 {a.status !== 'cancelled' && (
                   <IconButton onClick={() => setStatus(a, 'cancelled')} title="Cancelar" className="text-slate-400 hover:text-amber-600">⊘</IconButton>
                 )}
-                <IconButton onClick={() => setModal({ appt: a })} title="Editar">✎</IconButton>
-                {canDelete && <IconButton onClick={() => remove(a.id)} title="Eliminar" className="text-slate-400 hover:text-red-600">🗑</IconButton>}
+                <IconButton onClick={() => setModal({ appt: a })} title="Editar"><PencilSimple size={20} /></IconButton>
+                {canDelete && <IconButton onClick={() => remove(a.id)} title="Eliminar" className="text-slate-400 hover:text-red-600"><Trash size={20} /></IconButton>}
               </div>
             </Card>
           ))}

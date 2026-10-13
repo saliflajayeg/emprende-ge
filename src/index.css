@@ -1,5 +1,31 @@
 @import "tailwindcss";
 
+/* ============================================================
+   Sistema visual de GEmprende
+   - Tipografías: Plus Jakarta Sans (texto) + Bricolage Grotesque (títulos)
+   - Neutros CÁLIDOS (crema/piedra) en lugar del gris azulado frío: más cercano
+     y acogedor para pequeños negocios. Un solo acento: el verde azulado del logo.
+   Redefinimos la escala "slate" para que toda la app cambie de tono sin tocar
+   cada componente.
+   ============================================================ */
+@theme {
+  --font-sans: "Plus Jakarta Sans Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Bricolage Grotesque Variable", "Plus Jakarta Sans Variable", system-ui, sans-serif;
+
+  --color-slate-50: #faf8f4;
+  --color-slate-100: #f3efe7;
+  --color-slate-200: #e7e1d6;
+  --color-slate-300: #d4ccbe;
+  --color-slate-400: #a0978a;
+  --color-slate-500: #776e62;
+  --color-slate-600: #5a5248;
+  --color-slate-700: #423c34;
+  --color-slate-800: #2b2722;
+  --color-slate-900: #1b1915;
+
+  --color-cream: #f6f1e8;
+}
+
 :root {
   color-scheme: light;
 }
@@ -10,11 +36,20 @@ html, body, #root {
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  background: #f1f5f9;
-  color: #0f172a;
+  font-family: var(--font-sans);
+  background: var(--color-cream);
+  color: var(--color-slate-900);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
+
+/* Títulos con personalidad: Bricolage, apretados y con peso */
+h1, h2, h3, .font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+  text-wrap-style: balance; /* solo el estilo: no anula whitespace-nowrap */
+}
+h1 { letter-spacing: -0.03em; }
 
 /* Evita el desplazamiento/movimiento horizontal en móvil */
 html, body {
@@ -64,6 +99,14 @@ button, a, [role="button"] {
 .ge-scrim { animation: ge-scrim-in 0.2s ease-out both; }
 /* El leve overshoot (0.34,1.56,…) da el "rebote" físico tras un gesto. */
 .ge-sheet { animation: ge-sheet-in 0.34s cubic-bezier(0.34, 1.4, 0.64, 1) both; }
+/* En el móvil los formularios son una hoja que sube desde abajo */
+@keyframes ge-sheet-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+@media (max-width: 639px) {
+  .ge-sheet { animation: ge-sheet-up 0.36s cubic-bezier(0.32, 0.72, 0, 1) both; }
+}
 
 /* Menú lateral móvil: entra deslizando desde la izquierda y SALE por el mismo
    lado (misma ruta = consistencia espacial). El velo se difumina y se aclara. */

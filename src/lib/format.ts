@@ -6,15 +6,20 @@ export function setCurrency(c: string) {
   currentCurrency = c || 'XAF'
 }
 
+// Separador de miles con punto SIEMPRE (también en 4 cifras: 4.000), como se
+// escribe en Guinea Ecuatorial. toLocaleString no agrupa los números de 4 cifras.
+function group(n: number): string {
+  const r = Math.round(n || 0)
+  const s = Math.abs(r).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+  return r < 0 ? `-${s}` : s
+}
+
 export function money(amount: number, currency = currentCurrency): string {
-  const n = Math.round(amount || 0)
-  // XAF no usa decimales; separador de miles con punto (uso local)
-  const formatted = n.toLocaleString('es-GQ').replace(/,/g, '.')
-  return `${formatted} ${currency}`
+  return `${group(amount)} ${currency}`
 }
 
 export function moneyPlain(amount: number): string {
-  return Math.round(amount || 0).toLocaleString('es-GQ').replace(/,/g, '.')
+  return group(amount)
 }
 
 const MONTHS = [

@@ -5,6 +5,9 @@ import { AuthProvider } from './cloud/auth'
 import { BusinessProvider } from './cloud/business'
 import Root from './cloud/Root'
 import InstallPrompt from './components/InstallPrompt'
+// Tipografías incluidas en la app (funcionan sin internet)
+import '@fontsource-variable/plus-jakarta-sans'
+import '@fontsource-variable/bricolage-grotesque'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

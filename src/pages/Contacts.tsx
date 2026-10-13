@@ -5,6 +5,7 @@ import { useBusiness } from '../cloud/business'
 import { usePerms } from '../cloud/perms'
 import { Button, Card, Modal, Field, Input, Textarea, EmptyState, IconButton } from '../components/ui'
 import ClientProfile from '../components/ClientProfile'
+import { Phone, PencilSimple, Trash } from '@phosphor-icons/react'
 import { clientStats } from '../lib/salesStats'
 import { money } from '../lib/format'
 
@@ -120,7 +121,7 @@ export default function Contacts() {
       )}
 
       {list.length === 0 ? (
-        <EmptyState title="Sin contactos" hint={tab === 'client' ? 'Tus clientes se añaden solos al hacer una factura con su nombre.' : 'Añade tus proveedores para asociarlos a tus gastos.'} />
+        <EmptyState image={tab === 'client' ? '/ill/clientes.webp' : undefined} title={tab === 'client' ? 'Aquí verás a tus clientes' : 'Sin proveedores'} hint={tab === 'client' ? 'Se añaden solos cuando haces una factura con su nombre. Verás lo que compra cada uno y quién te debe.' : 'Añade tus proveedores para asociarlos a tus gastos.'} />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {list.map((c) => {
@@ -129,7 +130,7 @@ export default function Contacts() {
               <Card key={c.id} className="flex items-start gap-2">
                 <button onClick={() => (c.type === 'client' ? setProfile(c) : setModal({ c }))} className="min-w-0 flex-1 text-left transition-transform active:scale-[0.99]">
                   <div className="truncate font-semibold text-slate-800">{c.name}</div>
-                  {c.phone && <div className="text-sm text-slate-500">📞 {c.phone}</div>}
+                  {c.phone && <div className="flex items-center gap-1 text-sm text-slate-500"><Phone size={14} /> {c.phone}</div>}
                   {c.type === 'client' && st && (
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
                       <span className="text-slate-500">Comprado <span className="ge-nums font-medium text-slate-700">{money(st.bought)}</span></span>
@@ -141,8 +142,8 @@ export default function Contacts() {
                   {c.notes && <div className="mt-1 text-xs text-slate-400">{c.notes}</div>}
                 </button>
                 <div className="flex shrink-0 gap-1">
-                  <IconButton onClick={() => setModal({ c })} title="Editar">✎</IconButton>
-                  {canDelete && <IconButton onClick={() => remove(c.id)} title="Eliminar" className="text-slate-400 hover:text-red-600">🗑</IconButton>}
+                  <IconButton onClick={() => setModal({ c })} title="Editar"><PencilSimple size={20} /></IconButton>
+                  {canDelete && <IconButton onClick={() => remove(c.id)} title="Eliminar" className="text-slate-400 hover:text-red-600"><Trash size={20} /></IconButton>}
                 </div>
               </Card>
             )
