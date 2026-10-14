@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, withTimeout } from '../lib/supabase'
 import { keysToCamel, keysToSnake } from './api'
 import { setLocalBusiness } from './localdb'
 import { startSync, stopSync } from './sync'
@@ -97,14 +97,32 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
       setLoading(false)
       return
     }
-    // Asegura que el token de sesión esté cargado antes de consultar; si no,
-    // en el arranque en frío la primera consulta puede volver vacía (RLS).
-    try { await supabase.auth.getSession() } catch { /* */ }
+    // Aplica una lista de negocios (de la nube o de la copia del teléfono).
+    const apply = (list: Business[], roles: Record<string, 'owner' | 'employee'>, admin: boolean) => {
+      setBusinesses(list)
+      setRoleByBiz(roles)
+      setIsAdmin(admin)
+      // negocio actual: el guardado si sigue existiendo, si no el primero
+      let saved: string | null = null
+      try { saved = localStorage.getItem(CURRENT_KEY) } catch { /* */ }
+      const validSaved = saved && list.some((b) => b.id === saved) ? saved : null
+      setCurrentId((prev) => (prev && list.some((b) => b.id === prev) ? prev : validSaved ?? list[0]?.id ?? null))
+    }
 
-    let list: Business[]
-    let roles: Record<string, 'owner' | 'employee'>
-    let admin: boolean
+    // 1) OFFLINE PRIMERO: si el teléfono tiene copia de los negocios, se abre ya con
+    //    ella (los datos están en el teléfono). La nube solo la refresca después.
+    const cached = readBizCache()
+    if (cached?.businesses.length) {
+      apply(cached.businesses, cached.roles, cached.admin)
+      setLoading(false)
+    }
+
+    // 2) Refresco desde la nube, sin bloquear la apertura.
     try {
+      // Asegura que el token de sesión esté cargado antes de consultar; si no,
+      // en el arranque en frío la primera consulta puede volver vacía (RLS).
+      const session = await withTimeout(supabase.auth.getSession(), 8000, null)
+      if (!session?.data.session) throw new Error('sin sesión válida')
       const [biz, mem, adm] = await Promise.all([
         supabase.from('businesses').select('*').order('created_at'),
         supabase.from('members').select('business_id, role').eq('user_id', user.id),
@@ -112,9 +130,9 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
       ])
       // Si la consulta principal falla (p. ej. sin conexión), caemos al respaldo.
       if (biz.error) throw biz.error
-      roles = {}
+      const roles: Record<string, 'owner' | 'employee'> = {}
       for (const m of mem.data ?? []) roles[m.business_id] = m.role
-      admin = !!adm.data
+      const admin = !!adm.data
       const all = (biz.data ?? []).map((r) => keysToCamel<Business>(r))
       // El admin puede LEER todos los negocios por RLS, pero en la app normal solo
       // debe ver los suyos (el resto van al panel de Admin). Filtramos SOLO para el
@@ -122,26 +140,16 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
       // de miembros llega vacía en el arranque en frío. El usuario normal no se filtra
       // (RLS ya solo le devuelve los suyos), evitando esconderle sus negocios.
       const memberIds = new Set(Object.keys(roles))
-      list = admin ? all.filter((b) => memberIds.has(b.id) || b.ownerId === user.id) : all
-      // Guarda copia local para el arranque offline.
+      const list = admin ? all.filter((b) => memberIds.has(b.id) || b.ownerId === user.id) : all
+      // Una respuesta vacía con copia local llena suele ser un fallo de sesión, no que
+      // el negocio haya desaparecido: no borramos la copia del teléfono por eso.
+      if (list.length === 0 && cached?.businesses.length) throw new Error('respuesta vacía')
       try { localStorage.setItem(BIZ_CACHE_KEY, JSON.stringify({ businesses: list, roles, admin } as BizCache)) } catch { /* */ }
+      apply(list, roles, admin)
     } catch {
-      // Sin conexión (o error de red): usa la última copia local para poder trabajar offline.
-      const cached = readBizCache()
-      if (!cached) { setBusinesses([]); setLoading(false); return }
-      list = cached.businesses
-      roles = cached.roles
-      admin = cached.admin
+      // Sin conexión (o error de red): nos quedamos con la copia del teléfono.
+      if (!cached?.businesses.length) setBusinesses([])
     }
-
-    setBusinesses(list)
-    setRoleByBiz(roles)
-    setIsAdmin(admin)
-    // negocio actual: el guardado si sigue existiendo, si no el primero
-    let saved: string | null = null
-    try { saved = localStorage.getItem(CURRENT_KEY) } catch { /* */ }
-    const validSaved = saved && list.some((b) => b.id === saved) ? saved : null
-    setCurrentId(validSaved ?? list[0]?.id ?? null)
     setLoading(false)
   }, [user])
 

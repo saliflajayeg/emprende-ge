@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase'
+import { supabase, withTimeout } from '../lib/supabase'
 import { keysToCamel, keysToSnake } from './api'
 import { ldb, setSuppress, SYNC_TABLES, CLOUD_TABLE, type SyncTable } from './localdb'
 
@@ -77,8 +77,10 @@ async function pullBusiness(bid: string, canReconcileDeletes: boolean) {
       }
       if (toPut.length) await table.bulkPut(toPut)
 
-      // Borrados remotos: filas locales limpias que ya no están en la nube
-      if (canReconcileDeletes) {
+      // Borrados remotos: filas locales limpias que ya no están en la nube.
+      // Si la nube devuelve la tabla VACÍA pero el teléfono tiene datos, no borramos
+      // nada: casi siempre es un fallo de sesión/permisos, no un borrado real.
+      if (canReconcileDeletes && cloudRows.length > 0) {
         const gone = localRows
           .filter((r: any) => !cloudIds.has(r.id) && !r.dirty)
           .map((r: any) => r.id)
@@ -88,16 +90,27 @@ async function pullBusiness(bid: string, canReconcileDeletes: boolean) {
   }
 }
 
-// Un ciclo completo de sincronización para un negocio.
+// Un ciclo completo de sincronización para un negocio. Los datos SIEMPRE se leen y
+// se guardan primero en el teléfono; esto solo los sube/baja cuando hay conexión.
+let inFlight = false
 export async function syncBusiness(bid: string) {
   if (!navigator.onLine) { setStatus('offline'); return }
-  setStatus('syncing')
+  if (inFlight) return // con red lenta, no apilar pasadas una encima de otra
+  inFlight = true
   try {
+    // Sin sesión válida las consultas irían como anónimo y volverían vacías:
+    // no tocamos nada hasta poder hablar con la nube como el usuario. (Sin internet
+    // real esto no responde: a los 5 s mostramos «Sin conexión · guardado».)
+    const s = await withTimeout(supabase.auth.getSession(), 5000, null)
+    if (!s?.data.session) { setStatus('error'); return }
+    setStatus('syncing')
     const ok = await pushBusiness(bid)
     await pullBusiness(bid, ok)
     setStatus(ok ? 'idle' : 'error')
   } catch {
     setStatus('error')
+  } finally {
+    inFlight = false
   }
 }
 

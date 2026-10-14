@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { User } from '@supabase/supabase-js'
-import { supabase } from '../lib/supabase'
+import { supabase, withTimeout } from '../lib/supabase'
 import { DEMO, DEMO_USER_ID } from './demo'
 
 interface AuthCtx {
@@ -33,8 +33,12 @@ function clearCachedUser() {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
+  // OFFLINE PRIMERO: si este teléfono ya tiene una cuenta guardada, la app abre
+  // AL INSTANTE con ella y con los datos locales. La comprobación con Supabase va
+  // después, en segundo plano, y nunca bloquea la apertura (sin internet, o con
+  // internet "de mentira" sin saldo, la app se quedaba en «Cargando…»).
+  const [user, setUser] = useState<User | null>(() => (DEMO ? null : readCachedUser()))
+  const [loading, setLoading] = useState(() => DEMO || !readCachedUser())
 
   useEffect(() => {
     // Modo demo (solo desarrollo): usuario ficticio, sin iniciar sesión.
@@ -43,26 +47,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false)
       return
     }
-    supabase.auth
-      .getSession()
-      .then(({ data }) => {
-        const u = data.session?.user ?? null
+    let alive = true
+    withTimeout(supabase.auth.getSession(), 8000, null)
+      .then((res) => {
+        if (!alive) return
+        if (res === null) return // tarda demasiado: seguimos con la cuenta guardada
+        const u = res.data.session?.user ?? null
         if (u) {
           setUser(u)
           cacheUser(u)
-        } else if (!navigator.onLine) {
-          // Sin conexión y sin sesión válida (token caducado): usa la última cuenta.
-          setUser(readCachedUser())
-        } else {
+        } else if (!res.error) {
+          // No hay ninguna sesión guardada en este navegador: hay que iniciar sesión.
           setUser(null)
+          clearCachedUser()
         }
-        setLoading(false)
+        // Con error (normalmente de red) se mantiene la cuenta guardada.
       })
-      .catch(() => {
-        // Fallo al leer la sesión (normalmente por falta de red): respaldo offline.
-        setUser(readCachedUser())
-        setLoading(false)
-      })
+      .catch(() => { /* sin red: seguimos con la cuenta guardada */ })
+      .finally(() => { if (alive) setLoading(false) })
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       const u = session?.user ?? null
@@ -70,14 +72,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(u)
         cacheUser(u)
       } else if (event === 'SIGNED_OUT' && navigator.onLine) {
-        // Solo cerramos sesión de verdad cuando es intencional y hay conexión.
-        // Un evento con sesión nula estando offline (renovación de token fallida)
-        // NO debe expulsar al usuario.
+        // Solo cerramos sesión cuando el servidor la rechaza de verdad o el usuario
+        // la cierra. Un fallo de red al renovar el token NO expulsa a nadie.
         setUser(null)
         clearCachedUser()
       }
     })
-    return () => sub.subscription.unsubscribe()
+    return () => { alive = false; sub.subscription.unsubscribe() }
   }, [])
 
   const signOut = async () => {

@@ -7,7 +7,7 @@ import { getSyncStatus, onSync, syncBusiness, type SyncStatus } from './sync'
 import CreateBusiness from './CreateBusiness'
 import PullToRefresh from '../components/PullToRefresh'
 import { ModuleIcon } from '../components/icons'
-import { CloudCheck, ArrowsClockwise, WifiSlash, Warning, List, Plus, SignOut, X } from '@phosphor-icons/react'
+import { CloudCheck, ArrowsClockwise, WifiSlash, List, Plus, SignOut, X } from '@phosphor-icons/react'
 
 const MAX_BUSINESSES = 5
 
@@ -30,12 +30,16 @@ function SyncBadge() {
   const map: Record<SyncStatus, { t: string; c: string; I: typeof CloudCheck }> = {
     idle: { t: 'Guardado', c: 'bg-teal-50 text-teal-700', I: CloudCheck },
     syncing: { t: 'Guardando…', c: 'bg-sky-50 text-sky-700', I: ArrowsClockwise },
-    offline: { t: 'Sin internet', c: 'bg-amber-50 text-amber-700', I: WifiSlash },
-    error: { t: 'Reintentando', c: 'bg-red-50 text-red-700', I: Warning },
+    // Sin red los datos siguen a salvo en el teléfono: el mensaje lo dice claro.
+    offline: { t: 'Sin internet · guardado', c: 'bg-amber-50 text-amber-800', I: WifiSlash },
+    error: { t: 'Sin conexión · guardado', c: 'bg-amber-50 text-amber-800', I: WifiSlash },
   }
   const { t, c, I } = map[s]
+  const hint = s === 'offline' || s === 'error'
+    ? 'Tus datos están guardados en este teléfono. Se subirán a la nube solos cuando vuelva internet.'
+    : s === 'idle' ? 'Guardado en el teléfono y en la nube.' : 'Subiendo tus cambios a la nube…'
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${c}`}>
+    <span title={hint} aria-label={hint} className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${c}`}>
       <I size={14} weight="bold" className={s === 'syncing' ? 'animate-spin' : ''} />
       {t}
     </span>

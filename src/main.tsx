@@ -10,6 +10,10 @@ import '@fontsource-variable/plus-jakarta-sans'
 import '@fontsource-variable/bricolage-grotesque'
 import './index.css'
 
+// Pide al navegador que NO borre los datos guardados en el teléfono aunque falte
+// espacio (sin esto, Android puede limpiar el almacenamiento de webs poco usadas).
+try { navigator.storage?.persist?.().catch(() => {}) } catch { /* */ }
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <HashRouter>
