@@ -174,12 +174,27 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     })
     if (error) throw error
     const newId = data as string
-    await reload()
+    // Añade el negocio nuevo a la lista (y a la copia del teléfono) YA, sin esperar a
+    // volver a descargarla: con internet flojo esa descarga puede fallar y el usuario
+    // se quedaba sin negocio seleccionado y sin poder volver al primero.
+    const fresh: Business = {
+      id: newId, ownerId: user?.id ?? '', name: b.name, ownerName: b.ownerName, sector: '',
+      businessType: b.businessType, enabledModules: b.enabledModules, currency: b.currency,
+      phone: '', address: '', taxRate: b.taxRate, recordsLabel: '', logo: null, createdAt: new Date().toISOString(),
+    }
+    const nextList = [...businesses.filter((x) => x.id !== newId), fresh]
+    const nextRoles = { ...roleByBiz, [newId]: 'owner' as const }
+    setBusinesses(nextList)
+    setRoleByBiz(nextRoles)
+    try { localStorage.setItem(BIZ_CACHE_KEY, JSON.stringify({ businesses: nextList, roles: nextRoles, admin: isAdmin } as BizCache)) } catch { /* */ }
     setCurrent(newId)
+    reload() // refresca desde la nube en segundo plano
     return newId
   }
 
-  const current = businesses.find((b) => b.id === currentId) ?? null
+  // Si el negocio elegido no está en la lista (p. ej. tras un fallo de red), se usa el
+  // primero en vez de dejar la app sin negocio.
+  const current = businesses.find((b) => b.id === currentId) ?? businesses[0] ?? null
   const role = current ? roleByBiz[current.id] ?? null : null
 
   const loadMembers = useCallback(async (bid: string | null) => {

@@ -1,13 +1,14 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { useEffect, useState, type ReactNode } from 'react'
-import { navModules, modulesFor, type ModuleId } from '../modules'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { navModules, modulesFor, BUSINESS_TYPES, type ModuleId } from '../modules'
 import { useAuth } from './auth'
 import { useBusiness } from './business'
 import { getSyncStatus, onSync, syncBusiness, type SyncStatus } from './sync'
 import CreateBusiness from './CreateBusiness'
 import PullToRefresh from '../components/PullToRefresh'
 import { ModuleIcon } from '../components/icons'
-import { CloudCheck, ArrowsClockwise, WifiSlash, List, Plus, SignOut, X } from '@phosphor-icons/react'
+import { Modal } from '../components/ui'
+import { CloudCheck, ArrowsClockwise, WifiSlash, List, Plus, SignOut, X, CaretDown, CaretRight, CheckCircle, Info } from '@phosphor-icons/react'
 
 const MAX_BUSINESSES = 5
 
@@ -75,6 +76,9 @@ export default function CloudLayout({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false)
   const [closing, setClosing] = useState(false)
   const [adding, setAdding] = useState(false)
+  const [picker, setPicker] = useState(false)
+  const [notice, setNotice] = useState('')
+  const addFrom = useRef<{ id: string; name: string } | null>(null)
   const navigate = useNavigate()
   const atMax = businesses.length >= MAX_BUSINESSES
 
@@ -101,41 +105,53 @@ export default function CloudLayout({ children }: { children: ReactNode }) {
   // "Más" abre el cajón con el resto de secciones, cambiar de negocio y cerrar sesión.
   const bottomNav = NAV.slice(0, 4)
 
-  // Cabecera: logo del negocio si lo tiene; si no, la marca GEmprende
+  // Logo del negocio si lo tiene; si no, la marca GEmprende
   const brandLogo = current?.logo || '/logo-mark.png'
-  const brandName = current?.logo ? current?.name || 'Mi negocio' : 'GEmprende'
   const logoFit = current?.logo ? 'object-contain bg-white' : 'object-cover'
 
-  const Switcher = ({ onAdd }: { onAdd: () => void }) => (
-    <div className="space-y-2">
-      <label className="block text-xs font-semibold text-slate-500">Negocio</label>
-      <select
-        value={current?.id}
-        onChange={(e) => setCurrent(e.target.value)}
-        className="min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-base font-semibold text-slate-800 outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-600/15 sm:text-sm"
-      >
-        {businesses.map((b) => <option key={b.id} value={b.id}>{b.name || 'Sin nombre'}</option>)}
-      </select>
-      <button
-        onClick={onAdd}
-        disabled={atMax}
-        title={atMax ? `Máximo ${MAX_BUSINESSES} negocios` : 'Añadir otro negocio'}
-        className="flex min-h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 px-2 text-xs font-semibold text-slate-500 transition hover:border-teal-500 hover:text-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        <Plus size={14} weight="bold" />
-        {atMax ? `Máximo ${MAX_BUSINESSES} negocios` : 'Añadir negocio'}
-      </button>
-    </div>
+  const typeLabel = (t: string) => BUSINESS_TYPES.find((x) => x.id === t)?.label ?? ''
+
+  // Abrir «Añadir negocio» recordando en qué negocio estaba, para avisarle luego
+  // de cómo volver (antes la gente creía que había perdido el primero).
+  const startAdding = () => {
+    if (current) addFrom.current = { id: current.id, name: current.name }
+    setPicker(false)
+    setAdding(true)
+  }
+  useEffect(() => {
+    const from = addFrom.current
+    if (adding || !from || !current) return
+    addFrom.current = null
+    if (current.id === from.id) return
+    setNotice(`Ahora estás en «${current.name}». Tu negocio «${from.name}» sigue aquí: toca el nombre de arriba para cambiar.`)
+    const t = setTimeout(() => setNotice(''), 10000)
+    return () => clearTimeout(t)
+  }, [adding, current?.id])
+
+  // Nombre del negocio actual, siempre visible: al tocarlo se elige otro negocio.
+  const BizButton = ({ big = false, onOpen }: { big?: boolean; onOpen?: () => void }) => (
+    <button
+      onClick={() => { onOpen?.(); setPicker(true) }}
+      aria-label={`Negocio: ${current?.name || 'Mi negocio'}. Cambiar de negocio`}
+      className={`flex min-w-0 items-center gap-2.5 text-left transition-transform active:scale-[0.98] ${big ? 'w-full rounded-2xl bg-slate-50 p-2.5 ring-1 ring-slate-200/80' : 'flex-1'}`}
+    >
+      <img src={brandLogo} alt="" className={`h-9 w-9 shrink-0 rounded-xl ${logoFit}`} />
+      <span className="min-w-0 flex-1">
+        <span className="block text-[11px] font-semibold leading-tight text-slate-500">
+          {businesses.length > 1 ? `Negocio · ${businesses.length} en total` : 'Tu negocio'}
+        </span>
+        <span className="flex min-w-0 items-center gap-1">
+          <span className="font-display truncate text-[17px] font-bold leading-tight text-slate-900">{current?.name || 'Mi negocio'}</span>
+          <CaretDown size={14} weight="bold" className="shrink-0 text-slate-500" />
+        </span>
+      </span>
+    </button>
   )
 
   return (
     <div className="flex min-h-screen w-full overflow-x-hidden">
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col overflow-y-auto border-r border-slate-200/70 bg-white/70 p-4 backdrop-blur md:flex">
-        <button onClick={() => navigate('/')} className="mb-5 flex items-center gap-2.5 text-left">
-          <img src={brandLogo} alt={brandName} className={`h-10 w-10 shrink-0 rounded-xl ${logoFit}`} />
-          <div className="font-display min-w-0 truncate text-lg font-bold leading-tight text-slate-900">{brandName}</div>
-        </button>
-        <div className="mb-4"><Switcher onAdd={() => setAdding(true)} /></div>
+        <div className="mb-4"><BizButton big /></div>
         <NavItems items={NAV} />
         <div className="mt-auto space-y-3 pt-4">
           <SyncBadge />
@@ -145,12 +161,18 @@ export default function CloudLayout({ children }: { children: ReactNode }) {
 
       <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden pb-16 md:pb-0">
         <header className="sticky top-0 z-30 flex items-center gap-2.5 border-b border-slate-200/60 bg-cream/85 px-4 pb-2.5 backdrop-blur-md md:hidden" style={{ paddingTop: 'calc(0.625rem + env(safe-area-inset-top))' }}>
-          <img src={brandLogo} alt={brandName} className={`h-9 w-9 shrink-0 rounded-xl ${logoFit}`} />
-          <span className="font-display min-w-0 flex-1 truncate text-lg font-bold text-slate-900">{brandName}</span>
+          <BizButton />
           <SyncBadge />
         </header>
 
         <main className="mx-auto w-full min-w-0 max-w-5xl flex-1 px-4 pb-6 pt-4 sm:p-6">
+          {notice && (
+            <div role="status" className="mb-4 flex items-start gap-2.5 rounded-2xl bg-slate-900 p-3.5 text-sm font-medium text-white">
+              <Info size={20} weight="fill" className="mt-0.5 shrink-0 text-teal-300" />
+              <span className="flex-1">{notice}</span>
+              <button onClick={() => setNotice('')} aria-label="Cerrar aviso" className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-white/70"><X size={14} weight="bold" /></button>
+            </div>
+          )}
           <PullToRefresh onRefresh={async () => { if (current?.id) await syncBusiness(current.id) }}>
             {children}
           </PullToRefresh>
@@ -222,7 +244,7 @@ export default function CloudLayout({ children }: { children: ReactNode }) {
               <span className="font-display text-xl font-bold text-slate-900">Menú</span>
               <button onClick={closeMenu} className="grid h-9 w-9 place-items-center rounded-full bg-slate-100 text-slate-500 transition-transform duration-100 ease-out active:scale-90" aria-label="Cerrar menú"><X size={18} weight="bold" /></button>
             </div>
-            <div className="mb-3"><Switcher onAdd={() => { closeMenu(); setAdding(true) }} /></div>
+            <div className="mb-3"><BizButton big onOpen={closeMenu} /></div>
             <NavItems items={NAV} onClick={closeMenu} />
             <div className="mt-4 border-t border-slate-100 pt-3">
               <button onClick={signOut} className="flex min-h-11 items-center gap-2 text-sm font-semibold text-slate-500"><SignOut size={18} /> Cerrar sesión</button>
@@ -230,6 +252,38 @@ export default function CloudLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
       )}
+
+      <Modal open={picker} onClose={() => setPicker(false)} title="Tus negocios">
+        <div className="space-y-2">
+          {businesses.map((b) => {
+            const on = b.id === current?.id
+            return (
+              <button
+                key={b.id}
+                onClick={() => { setCurrent(b.id); setPicker(false); navigate('/') }}
+                className={`flex w-full items-center gap-3 rounded-2xl p-3 text-left ring-1 transition-[transform,background-color] active:scale-[0.99] ${on ? 'bg-teal-50 ring-teal-300' : 'bg-white ring-slate-200 hover:bg-slate-50'}`}
+              >
+                {b.logo
+                  ? <img src={b.logo} alt="" className="h-11 w-11 shrink-0 rounded-xl bg-white object-contain" />
+                  : <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-teal-100 font-display text-lg font-bold text-teal-800">{(b.name || '?').trim().slice(0, 1).toUpperCase()}</span>}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[15px] font-bold text-slate-900">{b.name || 'Sin nombre'}</span>
+                  <span className="block truncate text-xs text-slate-500">{on ? 'Estás aquí' : typeLabel(b.businessType) || 'Toca para entrar'}</span>
+                </span>
+                {on ? <CheckCircle size={22} weight="fill" className="shrink-0 text-teal-700" /> : <CaretRight size={18} weight="bold" className="shrink-0 text-slate-400" />}
+              </button>
+            )
+          })}
+          {atMax ? (
+            <p className="pt-1 text-center text-xs text-slate-500">Máximo {MAX_BUSINESSES} negocios por cuenta.</p>
+          ) : (
+            <button onClick={startAdding} className="flex min-h-12 w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed border-slate-300 text-sm font-semibold text-slate-600 transition hover:border-teal-500 hover:text-teal-700">
+              <Plus size={16} weight="bold" /> Añadir otro negocio
+            </button>
+          )}
+          <p className="pt-1 text-center text-xs text-slate-500">Cada negocio tiene sus propias ventas, facturas y clientes.</p>
+        </div>
+      </Modal>
 
       {adding && (
         <div className="fixed inset-0 z-[60] overflow-y-auto">
