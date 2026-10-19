@@ -12,6 +12,14 @@ import { CloudCheck, ArrowsClockwise, WifiSlash, List, Plus, SignOut, X, CaretDo
 
 const MAX_BUSINESSES = 5
 
+// Cuenta con la que se ha entrado, legible: los teléfonos usan un correo interno
+// (222123456@telefono.gemprende.app) que mostramos como "teléfono 222 123 456".
+function accountLabel(email?: string | null): string {
+  if (!email) return '—'
+  const m = email.match(/^(\d+)@telefono\.gemprende\.app$/)
+  return m ? `teléfono ${m[1].replace(/(\d{3})(?=\d)/g, '$1 ')}` : email
+}
+
 // Bandera de Guinea Ecuatorial dibujada (los emojis de bandera no se ven en Windows ni en muchos Android)
 function EGFlag() {
   return (
@@ -71,8 +79,9 @@ function NavItems({ items, onClick }: { items: NavEntry[]; onClick?: () => void 
 }
 
 export default function CloudLayout({ children }: { children: ReactNode }) {
-  const { signOut } = useAuth()
-  const { current, businesses, setCurrent, role, isAdmin } = useBusiness()
+  const { signOut, user } = useAuth()
+  const { current, businesses, setCurrent, role, isAdmin, reload } = useBusiness()
+  const account = accountLabel(user?.email)
   const [open, setOpen] = useState(false)
   const [closing, setClosing] = useState(false)
   const [adding, setAdding] = useState(false)
@@ -155,6 +164,7 @@ export default function CloudLayout({ children }: { children: ReactNode }) {
         <NavItems items={NAV} />
         <div className="mt-auto space-y-3 pt-4">
           <SyncBadge />
+          <div className="truncate text-xs text-slate-500" title={account}>Cuenta: <b className="text-slate-700">{account}</b></div>
           <button onClick={signOut} className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-slate-700"><SignOut size={14} weight="bold" /> Cerrar sesión</button>
         </div>
       </aside>
@@ -173,7 +183,7 @@ export default function CloudLayout({ children }: { children: ReactNode }) {
               <button onClick={() => setNotice('')} aria-label="Cerrar aviso" className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-white/70"><X size={14} weight="bold" /></button>
             </div>
           )}
-          <PullToRefresh onRefresh={async () => { if (current?.id) await syncBusiness(current.id) }}>
+          <PullToRefresh onRefresh={async () => { await Promise.all([reload(), current?.id ? syncBusiness(current.id) : null]) }}>
             {children}
           </PullToRefresh>
         </main>
@@ -247,6 +257,7 @@ export default function CloudLayout({ children }: { children: ReactNode }) {
             <div className="mb-3"><BizButton big onOpen={closeMenu} /></div>
             <NavItems items={NAV} onClick={closeMenu} />
             <div className="mt-4 border-t border-slate-100 pt-3">
+              <div className="mb-1 truncate text-xs text-slate-500">Cuenta: <b className="text-slate-700">{account}</b></div>
               <button onClick={signOut} className="flex min-h-11 items-center gap-2 text-sm font-semibold text-slate-500"><SignOut size={18} /> Cerrar sesión</button>
             </div>
           </div>
@@ -282,6 +293,10 @@ export default function CloudLayout({ children }: { children: ReactNode }) {
             </button>
           )}
           <p className="pt-1 text-center text-xs text-slate-500">Cada negocio tiene sus propias ventas, facturas y clientes.</p>
+          <p className="rounded-xl bg-slate-50 px-3 py-2 text-center text-xs text-slate-600">
+            Cuenta: <b className="text-slate-800">{account}</b><br />
+            <span className="text-slate-500">¿Falta un negocio? En el otro aparato debe salir esta misma cuenta.</span>
+          </p>
         </div>
       </Modal>
 

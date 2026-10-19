@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { supabase, withTimeout } from '../lib/supabase'
 import { keysToCamel, keysToSnake } from './api'
 import { setLocalBusiness } from './localdb'
@@ -65,12 +65,19 @@ const CURRENT_KEY = 'gemprende-current-business'
 // SIN conexión: si la consulta a Supabase falla por falta de red, hidratamos desde aquí
 // en vez de mandar al usuario a "Crear negocio".
 const BIZ_CACHE_KEY = 'gemprende-biz-cache'
-interface BizCache { businesses: Business[]; roles: Record<string, 'owner' | 'employee'>; admin: boolean }
-function readBizCache(): BizCache | null {
+// La copia va ligada a la CUENTA (userId): si en el mismo aparato se entra con otra
+// cuenta, no se le enseñan los negocios de la anterior.
+interface BizCache { userId?: string; businesses: Business[]; roles: Record<string, 'owner' | 'employee'>; admin: boolean }
+function readBizCache(userId: string): BizCache | null {
   try {
     const raw = localStorage.getItem(BIZ_CACHE_KEY)
-    return raw ? (JSON.parse(raw) as BizCache) : null
+    const c = raw ? (JSON.parse(raw) as BizCache) : null
+    // Copias antiguas (sin userId) se aceptan hasta el primer refresco, que ya la guarda con él.
+    return c && (c.userId === userId || !c.userId) ? c : null
   } catch { return null }
+}
+function writeBizCache(c: BizCache) {
+  try { localStorage.setItem(BIZ_CACHE_KEY, JSON.stringify(c)) } catch { /* */ }
 }
 
 export function BusinessProvider({ children }: { children: ReactNode }) {
@@ -111,7 +118,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
 
     // 1) OFFLINE PRIMERO: si el teléfono tiene copia de los negocios, se abre ya con
     //    ella (los datos están en el teléfono). La nube solo la refresca después.
-    const cached = readBizCache()
+    const cached = readBizCache(user.id)
     if (cached?.businesses.length) {
       apply(cached.businesses, cached.roles, cached.admin)
       setLoading(false)
@@ -121,7 +128,8 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     try {
       // Asegura que el token de sesión esté cargado antes de consultar; si no,
       // en el arranque en frío la primera consulta puede volver vacía (RLS).
-      const session = await withTimeout(supabase.auth.getSession(), 8000, null)
+      // Ya no bloquea la apertura, así que podemos esperar más con internet lento.
+      const session = await withTimeout(supabase.auth.getSession(), 25000, null)
       if (!session?.data.session) throw new Error('sin sesión válida')
       const [biz, mem, adm] = await Promise.all([
         supabase.from('businesses').select('*').order('created_at'),
@@ -144,8 +152,9 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
       // Una respuesta vacía con copia local llena suele ser un fallo de sesión, no que
       // el negocio haya desaparecido: no borramos la copia del teléfono por eso.
       if (list.length === 0 && cached?.businesses.length) throw new Error('respuesta vacía')
-      try { localStorage.setItem(BIZ_CACHE_KEY, JSON.stringify({ businesses: list, roles, admin } as BizCache)) } catch { /* */ }
+      writeBizCache({ userId: user.id, businesses: list, roles, admin })
       apply(list, roles, admin)
+      lastOk.current = Date.now()
     } catch {
       // Sin conexión (o error de red): nos quedamos con la copia del teléfono.
       if (!cached?.businesses.length) setBusinesses([])
@@ -153,10 +162,31 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     setLoading(false)
   }, [user])
 
+  // Momento del último refresco correcto desde la nube.
+  const lastOk = useRef(0)
+
   useEffect(() => {
     setLoading(true)
     reload()
   }, [reload])
+
+  // La lista de negocios se vuelve a pedir a la nube aunque la app no se cierre
+  // (en el móvil la app instalada puede quedarse abierta días): al volver a la app,
+  // al recuperar internet y cada 5 min. Así un negocio creado en otro aparato
+  // aparece solo, y un fallo de red puntual no deja la lista vieja para siempre.
+  useEffect(() => {
+    if (!user || DEMO) return
+    const again = () => { if (Date.now() - lastOk.current > 60_000) reload() }
+    const onVisible = () => { if (document.visibilityState === 'visible') again() }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('online', again)
+    const t = setInterval(again, 5 * 60_000)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('online', again)
+      clearInterval(t)
+    }
+  }, [user, reload])
 
   const setCurrent = (id: string) => {
     setCurrentId(id)
@@ -186,7 +216,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     const nextRoles = { ...roleByBiz, [newId]: 'owner' as const }
     setBusinesses(nextList)
     setRoleByBiz(nextRoles)
-    try { localStorage.setItem(BIZ_CACHE_KEY, JSON.stringify({ businesses: nextList, roles: nextRoles, admin: isAdmin } as BizCache)) } catch { /* */ }
+    if (user) writeBizCache({ userId: user.id, businesses: nextList, roles: nextRoles, admin: isAdmin })
     setCurrent(newId)
     reload() // refresca desde la nube en segundo plano
     return newId

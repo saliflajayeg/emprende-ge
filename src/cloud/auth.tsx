@@ -76,6 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // la cierra. Un fallo de red al renovar el token NO expulsa a nadie.
         setUser(null)
         clearCachedUser()
+        try { localStorage.removeItem('gemprende-biz-cache') } catch { /* */ }
       }
     })
     return () => { alive = false; sub.subscription.unsubscribe() }
