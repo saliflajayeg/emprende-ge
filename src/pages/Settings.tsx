@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ldb, removeRow, type Kind, type Category } from '../cloud/localdb'
 import { useBusiness } from '../cloud/business'
@@ -7,7 +8,7 @@ import { legacySummary, importLegacy, type LegacySummary } from '../cloud/import
 import { fileToDataURL } from '../lib/image'
 import { BUSINESS_TYPES, MODULES, TOGGLEABLE, MODULE_DEPS, modulesFor, withDeps, type ModuleId } from '../modules'
 import { Card, Button, Field, Input, Select } from '../components/ui'
-import { Storefront, Camera, BellRinging, UsersThree, DownloadSimple, LinkSimple, CloudCheck, UserPlus, X } from '@phosphor-icons/react'
+import { Storefront, Camera, BellRinging, UsersThree, DownloadSimple, LinkSimple, CloudCheck, UserPlus, X, Trash, WarningOctagon } from '@phosphor-icons/react'
 import { pushState, isSubscribed, enablePush, disablePush, type PushState } from '../lib/push'
 
 const TABLE_LABEL: Record<string, string> = {
@@ -100,6 +101,62 @@ function PushCard({ businessId }: { businessId: string }) {
       )}
       {msg && <p className="mt-2 text-xs text-slate-500">{msg}</p>}
       <p className="mt-2 text-xs text-slate-400">Debes activarlo en cada dispositivo donde quieras recibir los avisos.</p>
+    </Card>
+  )
+}
+
+// Zona peligrosa: eliminar el negocio entero (solo el dueño ve Ajustes).
+// Para evitar accidentes hay que escribir el nombre del negocio antes de confirmar.
+function DeleteBusinessCard({ id, name }: { id: string; name: string }) {
+  const { deleteBusiness } = useBusiness()
+  const navigate = useNavigate()
+  const [open, setOpen] = useState(false)
+  const [typed, setTyped] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const target = name.trim() || 'ELIMINAR'
+  const matches = typed.trim().toLowerCase() === target.toLowerCase()
+
+  async function run() {
+    if (!matches || busy) return
+    setBusy(true); setError('')
+    try {
+      await deleteBusiness(id)
+      navigate('/', { replace: true })
+    } catch (e) {
+      setError((e as Error).message)
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Card className="border-red-200 bg-red-50/40">
+      <h2 className="mb-1 flex items-center gap-2 font-semibold text-red-700"><WarningOctagon size={20} weight="duotone" /> Eliminar el negocio</h2>
+      <p className="text-sm text-slate-600">
+        Borra <b>para siempre</b> este negocio y todos sus datos: ingresos, gastos, facturas, contactos, catálogo,
+        citas y el acceso de tu empleado. Se borra de la nube y de todos los teléfonos. <b>No se puede deshacer.</b>
+      </p>
+      {!open ? (
+        <Button variant="outline" onClick={() => setOpen(true)} className="mt-3 !text-red-600 !ring-red-200">
+          <Trash size={18} /> Eliminar este negocio…
+        </Button>
+      ) : (
+        <div className="mt-3 space-y-3">
+          <p className="text-sm text-slate-600">
+            Consejo: antes, descarga tus informes desde <b>Informes</b> si quieres guardar una copia.
+          </p>
+          <Field label={`Para confirmar, escribe el nombre del negocio: «${target}»`}>
+            <Input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={target} autoComplete="off" />
+          </Field>
+          {error && <p className="text-sm font-medium text-red-600">{error}</p>}
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => { setOpen(false); setTyped(''); setError('') }} disabled={busy}>Cancelar</Button>
+            <Button variant="danger" onClick={run} disabled={!matches || busy}>
+              {busy ? 'Eliminando…' : <><Trash size={18} weight="bold" /> Eliminar para siempre</>}
+            </Button>
+          </div>
+        </div>
+      )}
     </Card>
   )
 }
@@ -458,6 +515,8 @@ export default function Settings() {
           añadir a un empleado) verás la misma información.
         </p>
       </Card>
+
+      <DeleteBusinessCard id={current.id} name={current.name} />
     </div>
   )
 }

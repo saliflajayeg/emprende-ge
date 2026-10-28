@@ -4,6 +4,7 @@ import { ldb, type Transaction, type TxStatus, type Category } from '../cloud/lo
 import { useBusiness } from '../cloud/business'
 import { money, todayISO } from '../lib/format'
 import { Button, Field, Input, Select } from './ui'
+import DeleteTxButton from './DeleteTxButton'
 import { CookingPot, Fire, Taxi, Package, House, Receipt, ForkKnife, Drop, Lightbulb, Wrench, X, Plus, CaretDown, type Icon } from '@phosphor-icons/react'
 
 // Categorías de gasto de un toque, adaptadas al tipo de negocio. La primera es
@@ -252,6 +253,7 @@ export default function QuickExpenseForm({ existing, onDone }: { existing?: Tran
           {existing ? 'Guardar' : 'Guardar gasto'}
         </Button>
       </div>
+      <DeleteTxButton tx={existing} onDone={onDone} />
     </div>
   )
 }

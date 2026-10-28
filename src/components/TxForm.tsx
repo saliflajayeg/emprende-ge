@@ -4,6 +4,7 @@ import { ldb, type Kind, type Transaction, type TxStatus } from '../cloud/locald
 import { useBusiness } from '../cloud/business'
 import { todayISO } from '../lib/format'
 import { Button, Field, Input, Select, Textarea } from './ui'
+import DeleteTxButton from './DeleteTxButton'
 import { ArrowDownLeft, ArrowUpRight } from '@phosphor-icons/react'
 
 const PAYMENT_METHODS = ['Efectivo', 'Transferencia', 'Pago móvil', 'Tarjeta', 'Otro']
@@ -129,6 +130,7 @@ export default function TxForm({
           {existing ? 'Guardar cambios' : 'Registrar'}
         </Button>
       </div>
+      <DeleteTxButton tx={existing} onDone={onDone} />
     </div>
   )
 }

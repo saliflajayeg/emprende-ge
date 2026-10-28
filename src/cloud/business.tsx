@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { supabase, withTimeout } from '../lib/supabase'
 import { keysToCamel, keysToSnake } from './api'
-import { setLocalBusiness } from './localdb'
+import { ldb, setLocalBusiness, SYNC_TABLES } from './localdb'
 import { startSync, stopSync } from './sync'
 import { setCurrency } from '../lib/format'
 import { useAuth } from './auth'
@@ -52,13 +52,14 @@ interface BusinessCtx {
   createInvite: () => Promise<string>
   redeemInvite: (code: string, name: string) => Promise<string>
   removeMember: (userId: string) => Promise<void>
+  deleteBusiness: (id: string) => Promise<void>
 }
 
 const Ctx = createContext<BusinessCtx>({
   businesses: [], current: null, role: null, isAdmin: false, loading: true, members: [],
   setCurrent: () => {}, reload: async () => {}, reloadMembers: async () => {}, updateBusiness: async () => {},
   createBusiness: async () => '', createInvite: async () => '', redeemInvite: async () => '',
-  removeMember: async () => {},
+  removeMember: async () => {}, deleteBusiness: async () => {},
 })
 const CURRENT_KEY = 'gemprende-current-business'
 // Copia local de la lista de negocios (+ roles + admin) para poder abrir la app
@@ -261,6 +262,39 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
     await loadMembers(current.id)
   }
 
+  // Borra un negocio ENTERO (solo el dueño): en la nube, al borrar la fila del negocio
+  // se borran en cascada todos sus datos, miembros, invitaciones y avisos. Después se
+  // limpia la copia de este teléfono. Necesita internet: sin conexión no se puede
+  // garantizar que se borre de la nube y de los demás aparatos.
+  const deleteBusiness: BusinessCtx['deleteBusiness'] = async (id) => {
+    if (DEMO) throw new Error('No disponible en modo demo')
+    if (roleByBiz[id] !== 'owner') throw new Error('Solo el dueño puede eliminar el negocio')
+    if (!navigator.onLine) throw new Error('Necesitas conexión a internet para eliminar el negocio')
+    const { data, error } = await supabase.from('businesses').delete().eq('id', id).select('id')
+    if (error) throw error
+    // Con RLS, un borrado no permitido no da error: simplemente no borra nada.
+    if (!data?.length) throw new Error('No se pudo eliminar el negocio. Inténtalo de nuevo.')
+
+    if (current?.id === id) stopSync()
+    // Limpieza local: datos, borrados pendientes y estado de sincronización del negocio.
+    await ldb.transaction('rw', [...SYNC_TABLES.map((t) => (ldb as any)[t]), ldb.pendingDeletes, ldb.syncState], async () => {
+      for (const t of SYNC_TABLES) await (ldb as any)[t].where('businessId').equals(id).delete()
+      await ldb.pendingDeletes.where('businessId').equals(id).delete()
+      await ldb.syncState.delete(id)
+    })
+
+    const nextList = businesses.filter((b) => b.id !== id)
+    const { [id]: _gone, ...nextRoles } = roleByBiz
+    setBusinesses(nextList)
+    setRoleByBiz(nextRoles)
+    if (user) writeBizCache({ userId: user.id, businesses: nextList, roles: nextRoles, admin: isAdmin })
+    if (nextList[0]) setCurrent(nextList[0].id)
+    else {
+      setCurrentId(null)
+      try { localStorage.removeItem(CURRENT_KEY) } catch { /* */ }
+    }
+  }
+
   const updateBusiness = async (patch: Record<string, any>) => {
     if (!current) return
     if (DEMO) { setBusinesses((prev) => prev.map((b) => (b.id === current.id ? { ...b, ...patch } : b))); return }
@@ -281,7 +315,7 @@ export function BusinessProvider({ children }: { children: ReactNode }) {
   }, [current?.id])
 
   return (
-    <Ctx.Provider value={{ businesses, current, role, isAdmin, loading, members, setCurrent, reload, reloadMembers, updateBusiness, createBusiness, createInvite, redeemInvite, removeMember }}>
+    <Ctx.Provider value={{ businesses, current, role, isAdmin, loading, members, setCurrent, reload, reloadMembers, updateBusiness, createBusiness, createInvite, redeemInvite, removeMember, deleteBusiness }}>
       {children}
     </Ctx.Provider>
   )
