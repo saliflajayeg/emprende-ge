@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useNavigate } from 'react-router-dom'
 import { ldb, removeRow, type Transaction, type Kind } from '../cloud/localdb'
 import { useBusiness } from '../cloud/business'
 import { usePerms } from '../cloud/perms'
@@ -9,6 +8,7 @@ import { downloadCSV } from '../lib/csv'
 import { Button, Card, Modal, Badge, Input, EmptyState, IconButton } from '../components/ui'
 import TxForm from '../components/TxForm'
 import QuickExpenseForm from '../components/QuickExpenseForm'
+import LinkedTxSheet from '../components/LinkedTxSheet'
 import { usesQuickExpense } from '../modules'
 import { FileXls, Plus, MagnifyingGlass, ArrowDownLeft, ArrowUpRight, Receipt, PencilSimple, Trash } from '@phosphor-icons/react'
 
@@ -24,7 +24,6 @@ export default function Transactions({
   emptyHint?: string
 } = {}) {
   const { current } = useBusiness()
-  const navigate = useNavigate()
   const bid = current?.id ?? ''
   const { canDelete } = usePerms()
   const txs = useLiveQuery(() => (bid ? ldb.transactions.where('businessId').equals(bid).toArray() : []), [bid])
@@ -32,6 +31,7 @@ export default function Transactions({
   const contacts = useLiveQuery(() => (bid ? ldb.contacts.where('businessId').equals(bid).toArray() : []), [bid])
 
   const [modal, setModal] = useState<null | { kind: Kind; tx?: Transaction }>(null)
+  const [linked, setLinked] = useState<Transaction | null>(null)
   const [filterKind, setFilterKind] = useState<'all' | Kind>(lockKind ?? 'all')
   const [filterStatus, setFilterStatus] = useState<'all' | 'paid' | 'pending'>(pendingOnly ? 'pending' : 'all')
   const [query, setQuery] = useState('')
@@ -136,7 +136,7 @@ export default function Transactions({
                 return (
                   <li key={t.id}>
                     <button
-                      onClick={() => (t.invoiceId ? navigate('/facturas') : setModal({ kind: t.kind, tx: t }))}
+                      onClick={() => (t.invoiceId ? setLinked(t) : setModal({ kind: t.kind, tx: t }))}
                       className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-slate-50"
                     >
                       <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${t.invoiceId ? 'bg-teal-50 text-teal-700' : inc ? 'bg-teal-50 text-teal-700' : 'bg-red-50 text-red-600'}`}>
@@ -190,7 +190,7 @@ export default function Transactions({
                   <td className="whitespace-nowrap px-4 py-3 text-right">
                     {t.invoiceId ? (
                       // Los cobros/deudas de una factura se gestionan desde Facturas
-                      <button onClick={() => navigate('/facturas')} className="text-xs font-semibold text-teal-700">Ver factura →</button>
+                      <button onClick={() => setLinked(t)} className="text-xs font-semibold text-teal-700">Ver / borrar →</button>
                     ) : (
                       <div className="flex justify-end gap-0.5">
                         <IconButton onClick={() => setModal({ kind: t.kind, tx: t })} title="Editar"><PencilSimple size={20} /></IconButton>
@@ -205,6 +205,10 @@ export default function Transactions({
           </Card>
         </>
       )}
+
+      <Modal open={linked !== null} onClose={() => setLinked(null)} title={linked?.status === 'pending' ? 'Deuda de una factura' : 'Cobro de una factura'}>
+        {linked && <LinkedTxSheet tx={linked} onDone={() => setLinked(null)} />}
+      </Modal>
 
       <Modal open={modal !== null} onClose={() => setModal(null)} title={modal?.tx ? 'Editar movimiento' : modal?.kind === 'expense' ? 'Registrar gasto' : 'Nuevo movimiento'}>
         {modal && (modal.kind === 'expense' && usesQuickExpense(current?.businessType) ? (

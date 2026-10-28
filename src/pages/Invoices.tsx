@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ldb, type Contact, type Invoice, type DocType, type Transaction } from '../cloud/localdb'
 import ClientProfile from '../components/ClientProfile'
@@ -86,6 +87,15 @@ export default function Invoices({ mode = 'invoices' }: { mode?: 'invoices' | 'q
   const [oldOpen, setOldOpen] = useState(false)
   const [viewPhoto, setViewPhoto] = useState<Invoice | null>(null)
   const [detailId, setDetailId] = useState<string | null>(null)
+  // Abrir directamente una factura al llegar desde Ventas/Deudas/Panel
+  const location = useLocation()
+  const navigate = useNavigate()
+  const openInvoice = (location.state as { openInvoice?: string } | null)?.openInvoice
+  useEffect(() => {
+    if (!openInvoice) return
+    setDetailId(openInvoice)
+    navigate(location.pathname, { replace: true, state: null })
+  }, [openInvoice]) // eslint-disable-line react-hooks/exhaustive-deps
   const [sharing, setSharing] = useState<string | null>(null)
   const [filter, setFilter] = useState<Filter>('all')
   const [query, setQuery] = useState('')

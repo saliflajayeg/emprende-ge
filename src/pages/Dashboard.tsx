@@ -191,7 +191,7 @@ export default function Dashboard() {
           <ul className="divide-y divide-slate-100 px-4 pb-2">
             {latest.map(({ inv, s }) => (
               <li key={inv.id}>
-                <button onClick={() => navigate('/facturas')} className="flex w-full items-center gap-3 py-3 text-left">
+                <button onClick={() => navigate('/facturas', { state: { openInvoice: inv.id } })} className="flex w-full items-center gap-3 py-3 text-left">
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-100 font-display text-sm font-bold text-slate-600">
                     {(inv.clientName || '?').trim().slice(0, 1).toUpperCase()}
                   </span>

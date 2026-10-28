@@ -30,11 +30,11 @@ export default function CloudApp() {
     <CloudLayout>
       <Routes>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/transacciones" element={<Transactions />} />
-        <Route path="/ventas" element={<Transactions title="Ventas" lockKind="income" emptyHint="Registra tu primera venta." />} />
-        <Route path="/gastos" element={<Transactions title="Gastos" lockKind="expense" emptyHint="Registra tu primer gasto." />} />
-        <Route path="/deudas" element={<Transactions title="Deudas" lockKind="income" pendingOnly emptyHint="Aquí verás lo que te deben los clientes." />} />
-        <Route path="/cobros" element={<Transactions title="Cobros pendientes" lockKind="income" pendingOnly emptyHint="Aquí verás los cobros pendientes." />} />
+        <Route path="/transacciones" element={<Transactions key="transacciones" />} />
+        <Route path="/ventas" element={<Transactions key="ventas" title="Ventas" lockKind="income" emptyHint="Registra tu primera venta." />} />
+        <Route path="/gastos" element={<Transactions key="gastos" title="Gastos" lockKind="expense" emptyHint="Registra tu primer gasto." />} />
+        <Route path="/deudas" element={<Transactions key="deudas" title="Deudas" lockKind="income" pendingOnly emptyHint="Aquí verás lo que te deben los clientes." />} />
+        <Route path="/cobros" element={<Transactions key="cobros" title="Cobros pendientes" lockKind="income" pendingOnly emptyHint="Aquí verás los cobros pendientes." />} />
         <Route path="/servicios" element={<Catalog cfg={CATALOG_SERVICES} />} />
         <Route path="/productos" element={<Catalog cfg={CATALOG_PRODUCTS} />} />
         <Route path="/ingredientes" element={<Catalog cfg={CATALOG_INGREDIENTS} />} />
@@ -46,8 +46,8 @@ export default function CloudApp() {
         <Route path="/trabajos" element={<Jobs />} />
         <Route path="/empleados" element={<Employees />} />
 
-        <Route path="/facturas" element={<Invoices mode="invoices" />} />
-        <Route path="/presupuestos" element={<Invoices mode="quotes" />} />
+        <Route path="/facturas" element={<Invoices key="facturas" mode="invoices" />} />
+        <Route path="/presupuestos" element={<Invoices key="presupuestos" mode="quotes" />} />
 
         <Route path="/fichas" element={<Records />} />
         <Route path="/alquileres" element={<Rentals />} />
